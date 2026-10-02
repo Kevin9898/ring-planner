@@ -539,7 +539,7 @@
   // ---------- 구글 캘린더 ----------
   function renderGoogle() {
     const st = RP.gcal.status;
-    const text = { off: '', idle: '', syncing: '구글 캘린더 동기화 중…', ok: '구글 캘린더 동기화됨', expired: '구글 연결이 만료되었습니다.', error: st.text }[st.state];
+    const text = { off: '', idle: '', syncing: '구글 동기화 중…', ok: '구글과 동기화됨', expired: '구글 연결이 만료되었습니다.', error: st.text }[st.state];
     const label = { off: 'Google 캘린더 연결', idle: '지금 동기화', syncing: '', ok: '지금 동기화', expired: '다시 연결', error: '다시 시도' }[st.state];
     $('#gStatus').textContent = st.state === 'off' && st.text ? st.text : text;
     $('#gStatus').className = st.state === 'error' || st.state === 'expired' ? 'err' : '';
@@ -588,7 +588,9 @@
     onStatus: renderGoogle,
     // 드래그 중이거나 대화상자가 열려 있으면 화면을 건드리지 않는다 (끝나면 다시 그려진다).
     onChange: () => {
-      if (!dragInfo && !document.querySelector('dialog[open]') && !$('#view-ring').hidden) render();
+      if (dragInfo || document.querySelector('dialog[open]')) return;
+      if ($('#view-ring').hidden) renderTodos();
+      else render();
     },
   });
 

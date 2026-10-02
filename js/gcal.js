@@ -11,7 +11,12 @@
     'https://www.googleapis.com/auth/calendar.app.created',
     'https://www.googleapis.com/auth/calendar.calendarlist.readonly',
     'https://www.googleapis.com/auth/calendar.events.readonly',
+    'https://www.googleapis.com/auth/drive.appdata', // 할 일·템플릿을 기기 간에 맞추는 앱 전용 숨김 폴더
   ];
+  const TOKEN_VERSION = 2; // 요청 권한이 바뀌면 올려서 예전 연결을 다시 받게 한다
+  const DRIVE = 'https://www.googleapis.com/drive/v3';
+  const DRIVE_UPLOAD = 'https://www.googleapis.com/upload/drive/v3';
+  const DATA_FILE = 'ringplan-data.json';
   const API = 'https://www.googleapis.com/calendar/v3';
   const RING_NAME = '링 계획표';
   const TOKEN_KEY = 'ringplan.gtoken';
@@ -68,7 +73,7 @@
   function loadToken() {
     try {
       const t = JSON.parse(localStorage.getItem(TOKEN_KEY));
-      if (t && t.exp > Date.now() + 60000) return t;
+      if (t && t.v === TOKEN_VERSION && t.exp > Date.now() + 60000) return t;
     } catch (e) {}
     return null;
   }
@@ -99,7 +104,7 @@
     if (!google.accounts.oauth2.hasGrantedAllScopes(resp, ...SCOPES)) {
       return setStatus('error', '권한 화면에서 항목을 모두 체크해야 연동됩니다. 다시 연결해 주세요.');
     }
-    token = { token: resp.access_token, exp: Date.now() + resp.expires_in * 1000 };
+    token = { token: resp.access_token, exp: Date.now() + resp.expires_in * 1000, v: TOKEN_VERSION };
     try {
       localStorage.setItem(TOKEN_KEY, JSON.stringify(token));
     } catch (e) {}
@@ -140,6 +145,8 @@
     S.setSetting('gcal', false);
     calendars = [];
     calendarsLoaded = false;
+    dataFileId = null;
+    dataFileLooked = false;
     ext = {};
     setStatus('off');
     cb.onChange();
@@ -152,10 +159,10 @@
       setStatus('expired');
       throw Object.assign(new Error('구글 연결이 만료되었습니다.'), { status: 401 });
     }
-    const res = await fetch(API + path, {
+    const res = await fetch(path.startsWith('https://') ? path : API + path, {
       method: opts.method || 'GET',
-      headers: Object.assign({ Authorization: 'Bearer ' + token.token }, opts.body ? { 'Content-Type': 'application/json' } : {}),
-      body: opts.body ? JSON.stringify(opts.body) : undefined,
+      headers: Object.assign({ Authorization: 'Bearer ' + token.token }, opts.raw ? { 'Content-Type': opts.type } : opts.body ? { 'Content-Type': 'application/json' } : {}),
+      body: opts.raw || (opts.body ? JSON.stringify(opts.body) : undefined),
     });
     if (res.status === 401) {
       token = null;
@@ -349,6 +356,43 @@
     if (firstError) throw firstError;
   }
 
+  // ---------- 할 일·템플릿 (구글 드라이브의 앱 전용 폴더) ----------
+  let dataFileId = null;
+  let dataFileLooked = false;
+  let lastDataSync = 0;
+
+  async function syncData(force) {
+    if (!force && !S.state.dataDirty && Date.now() - lastDataSync < 60000) return;
+    if (!dataFileLooked) {
+      const q = encodeURIComponent("name='" + DATA_FILE + "'");
+      const r = await api(`${DRIVE}/files?spaces=appDataFolder&fields=files(id)&q=${q}`);
+      dataFileId = r.files && r.files[0] ? r.files[0].id : null;
+      dataFileLooked = true;
+    }
+    let remote = null;
+    if (dataFileId) {
+      try {
+        remote = await api(`${DRIVE}/files/${dataFileId}?alt=media`);
+      } catch (e) {
+        if (e.status !== 404) throw e;
+        dataFileId = null;
+      }
+    }
+    const m = S.mergeData(remote);
+    if (m.upload) {
+      const json = JSON.stringify(m.data);
+      if (dataFileId) await api(`${DRIVE_UPLOAD}/files/${dataFileId}?uploadType=media`, { method: 'PATCH', raw: json, type: 'application/json' });
+      else {
+        const nl = String.fromCharCode(13, 10);
+        const meta = JSON.stringify({ name: DATA_FILE, parents: ['appDataFolder'] });
+        const raw = ['--ringplan', 'Content-Type: application/json; charset=UTF-8', '', meta, '--ringplan', 'Content-Type: application/json', '', json, '--ringplan--'].join(nl);
+        dataFileId = (await api(`${DRIVE_UPLOAD}/files?uploadType=multipart&fields=id`, { method: 'POST', raw, type: 'multipart/related; boundary=ringplan' })).id;
+      }
+    }
+    S.dataUploaded(m.rev);
+    lastDataSync = Date.now();
+  }
+
   // ---------- 다른 캘린더 (읽기 전용) ----------
   async function loadExternal(key) {
     const hidden = settings().hiddenCals;
@@ -387,16 +431,25 @@
     if (!settings().gcal) return;
     if (!tokenValid()) return setStatus('expired');
     if (running) {
-      queued = key;
+      queued = { key, refresh: refreshCalendars || (queued && queued.refresh) };
       return;
     }
     running = true;
     setStatus('syncing');
     try {
+      // 할 일을 먼저 맞춰야 캘린더에서 내려온 일정이 할 일과 연결된다.
+      let dataError = null;
+      try {
+        await syncData(refreshCalendars);
+      } catch (e) {
+        if (e.status === 401) throw e;
+        dataError = e;
+      }
       if (!calendarsLoaded || refreshCalendars) await ensureCalendars();
       await syncRing(key);
       await loadExternal(key);
-      setStatus('ok');
+      if (dataError) setStatus('error', '템플릿·할 일 동기화 실패: ' + (/Drive API/.test(dataError.message) ? 'Google Drive API가 꺼져 있습니다.' : dataError.message));
+      else setStatus('ok');
     } catch (e) {
       console.warn('구글 캘린더 동기화 실패', e);
       if (status.state !== 'expired') setStatus('error', '동기화 실패: ' + e.message);
@@ -404,9 +457,9 @@
     running = false;
     cb.onChange();
     if (queued) {
-      const k = queued;
+      const q = queued;
       queued = null;
-      sync(k);
+      sync(q.key, q.refresh);
     }
   }
 

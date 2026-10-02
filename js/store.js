@@ -11,6 +11,8 @@
     days: {},
     templates: [],
     todos: [],
+    gone: {}, // 지운 할 일·템플릿 id -> 지운 시각 (다른 기기에 삭제를 전하기 위해 남긴다)
+    dataDirty: false, // 할 일·템플릿이 바뀌었지만 아직 구글 드라이브에 올리지 못함
     tomb: [], // 로컬에서 지웠지만 아직 구글 캘린더에서 지우지 못한 이벤트 id
     settings: { mode: 'fixed', snap: 10, hiddenCals: [] },
   });
@@ -22,6 +24,8 @@
       templates: s.templates || d.templates,
       todos: s.todos || d.todos,
       tomb: s.tomb || d.tomb,
+      gone: s.gone || d.gone,
+      dataDirty: !!s.dataDirty,
       settings: Object.assign(d.settings, s.settings),
     };
   }
@@ -39,6 +43,13 @@
   let state = load();
   let onChange = null; // 사용자가 일정을 바꿨을 때 불린다 (동기화 예약용)
   const changed = () => onChange && onChange();
+  let dataRev = 0;
+  function dataChanged() {
+    state.dataDirty = true;
+    dataRev++;
+    save();
+    changed();
+  }
 
   function save() {
     try {
@@ -130,17 +141,17 @@
   const todo = (id) => state.todos.find((t) => t.id === id);
 
   function addTodo(t) {
-    const item = { id: uid(), title: t.title, due: t.due || null, est: t.est || 60, done: false, created: Date.now() };
+    const item = { id: uid(), title: t.title, due: t.due || null, est: t.est || 60, done: false, created: Date.now(), mod: Date.now() };
     state.todos.push(item);
-    save();
+    dataChanged();
     return item;
   }
 
   function updateTodo(id, patch) {
     const t = todo(id);
     if (!t) return;
-    Object.assign(t, patch);
-    save();
+    Object.assign(t, patch, { mod: Date.now() });
+    dataChanged();
   }
 
   function removeTodo(id) {
@@ -148,7 +159,8 @@
     for (const key of Object.keys(state.days)) {
       for (const b of state.days[key]) if (b.todoId === id) delete b.todoId;
     }
-    save();
+    state.gone[id] = Date.now();
+    dataChanged();
   }
 
   // todoId -> 링에 배치된 [{ date, start }] 목록
@@ -168,28 +180,31 @@
   function saveTemplate(name, key) {
     const blocks = stripBlocks(ownBlocks(key));
     const existing = state.templates.find((t) => t.name === name);
-    if (existing) existing.blocks = blocks;
-    else state.templates.push({ id: uid(), name, blocks });
-    save();
+    if (existing) Object.assign(existing, { blocks, mod: Date.now() });
+    else state.templates.push({ id: uid(), name, blocks, mod: Date.now() });
+    dataChanged();
   }
 
   function overwriteTemplate(id, key) {
     const t = state.templates.find((x) => x.id === id);
     if (!t) return;
     t.blocks = stripBlocks(ownBlocks(key));
-    save();
+    t.mod = Date.now();
+    dataChanged();
   }
 
   function renameTemplate(id, name) {
     const t = state.templates.find((x) => x.id === id);
     if (!t) return;
     t.name = name;
-    save();
+    t.mod = Date.now();
+    dataChanged();
   }
 
   function removeTemplate(id) {
     state.templates = state.templates.filter((t) => t.id !== id);
-    save();
+    state.gone[id] = Date.now();
+    dataChanged();
   }
 
   function applyTemplate(id, key, replace) {
@@ -201,6 +216,38 @@
     if (!state.days[key].length) delete state.days[key];
     save();
     changed();
+  }
+
+  // ---- 기기 간 동기화 (할 일·템플릿) ----
+  // 다른 기기가 올린 내용(remote)과 합친다. 같은 항목은 나중에 고친 쪽이 이긴다.
+  // 합친 결과를 로컬에 반영하고, 올려야 하는지(upload)와 화면이 바뀌었는지(localChanged)를 돌려준다.
+  function mergeData(remote) {
+    remote = remote || {};
+    const gone = Object.assign({}, remote.gone);
+    for (const id of Object.keys(state.gone)) gone[id] = Math.max(gone[id] || 0, state.gone[id]);
+    const limit = Date.now() - 180 * 86400000;
+    for (const id of Object.keys(gone)) if (gone[id] < limit) delete gone[id];
+    const merge = (theirs, mine) => {
+      const map = new Map();
+      for (const x of (theirs || []).concat(mine)) {
+        const old = map.get(x.id);
+        if (!old || (x.mod || 0) > (old.mod || 0)) map.set(x.id, x);
+      }
+      return [...map.values()].filter((x) => !(gone[x.id] >= (x.mod || 0)));
+    };
+    const data = { todos: merge(remote.todos, state.todos), templates: merge(remote.templates, state.templates), gone };
+    const pick = (o) => JSON.stringify({ todos: o.todos || [], templates: o.templates || [], gone: o.gone || {} });
+    const merged = pick(data);
+    const result = { data, rev: dataRev, upload: merged !== pick(remote), localChanged: merged !== pick(state) };
+    Object.assign(state, data);
+    save();
+    return result;
+  }
+
+  function dataUploaded(rev) {
+    if (rev !== dataRev) return; // 올리는 사이에 또 바뀜
+    state.dataDirty = false;
+    save();
   }
 
   // ---- 설정 / 백업 ----
@@ -231,6 +278,8 @@
     },
     save,
     uid,
+    mergeData,
+    dataUploaded,
     dropBlock,
     insertBlock,
     dateKey,
