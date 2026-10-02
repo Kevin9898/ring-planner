@@ -403,6 +403,8 @@ dialog form > input, dialog > form.row > input { width: 100%; }
 .tpllist .meta { color: var(--muted); font-size: 12.5px; }
 .tpllist .btns { display: flex; gap: 4px; flex-wrap: wrap; }
 #chooseMsg { margin: 0 0 4px; white-space: pre-line; }
+.chk { display: flex; align-items: center; gap: 8px; margin: 10px 0; font-size: 14px; cursor: pointer; }
+.chk input { width: 18px; height: 18px; flex: none; }
 
 /* ---- 달력 ---- */
 .caldlg { width: min(92vw, 360px); }

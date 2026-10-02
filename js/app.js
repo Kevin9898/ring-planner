@@ -4,7 +4,7 @@
   const S = RP.store;
   const DAY = S.DAY;
   const WEEK = ['일', '월', '화', '수', '목', '금', '토'];
-  const VERSION = '21'; // 올릴 때마다 올린다. 설정에 표시되어 기기가 최신 파일을 쓰는지 확인할 수 있다.
+  const VERSION = '22'; // 올릴 때마다 올린다. 설정에 표시되어 기기가 최신 파일을 쓰는지 확인할 수 있다.
   const DAILY_PLAN_CALENDAR = '일일계획표'; // 링 가운데 "현재 작업"에 쓰는 구글 캘린더 이름
 
   const $ = (sel) => document.querySelector(sel);
@@ -288,6 +288,10 @@
       $('#blockHead').textContent = init.isNew ? '새 일정' : '일정 편집';
       $('#bTitle').value = init.title || '';
       $('#bDate').value = init.date;
+      // 할 일 목록에도 넣을지: 새 일정은 지난번 선택을 기억하고, 이미 연결된 일정은 안내만 보여 준다.
+      $('#bTodoRow').hidden = !!init.todoId;
+      $('#bLinked').hidden = !init.todoId;
+      $('#bTodo').checked = init.isNew ? S.state.settings.blockTodo !== false : false;
       $('#bStart').value = fmt(init.start);
       $('#bEnd').value = fmt(init.start + init.dur);
       $('#bDelete').hidden = !!init.isNew;
@@ -311,7 +315,7 @@
         const start = parseTime($('#bStart').value);
         let dur = parseTime($('#bEnd').value) - start;
         if (dur <= 0) dur += DAY;
-        result = { action: 'save', title: $('#bTitle').value.trim() || '일정', date: $('#bDate').value || init.date, start, dur, color };
+        result = { action: 'save', title: $('#bTitle').value.trim() || '일정', date: $('#bDate').value || init.date, start, dur, color, makeTodo: !init.todoId && $('#bTodo').checked };
         dlg.close();
       };
       $('#bDelete').onclick = () => {
@@ -328,9 +332,13 @@
   async function createBlock(start, dur) {
     const res = await blockDialog({ isNew: true, date: cur, start, dur, color: S.nextColor(cur) });
     if (!res || res.action !== 'save') return render();
-    const b = S.addBlock(res.date, res);
+    S.setSetting('blockTodo', res.makeTodo);
+    const b = S.addBlock(res.date, Object.assign({ todoId: res.makeTodo ? todoFor(res).id : undefined }, res));
     showBlock(res.date, b);
   }
+
+  // 일정과 짝이 되는 할 일을 만든다: 마감은 일정 날짜, 예상 소요 시간은 일정 길이.
+  const todoFor = (res) => S.addTodo({ title: res.title, due: res.date, est: res.dur });
 
   // 방금 저장한 일정이 보이도록, 다른 날짜에 넣었으면 그 날짜로 이동한다 (그 날의 구글 동기화도 이때 돈다).
   function showBlock(date, b) {
@@ -347,11 +355,13 @@
       sel = null;
     } else if (res.date !== it.owner) {
       // 날짜를 바꾸면 원래 날짜에서 지우고 새 날짜에 다시 만든다 (구글 캘린더에도 그렇게 반영된다).
-      const todoId = it.block.todoId;
+      const todoId = it.block.todoId || (res.makeTodo ? todoFor(res).id : undefined);
       S.removeBlock(it.owner, it.block.id);
       return showBlock(res.date, S.addBlock(res.date, Object.assign({ todoId }, res)));
     } else {
-      S.updateBlock(it.owner, it.block.id, { title: res.title, start: res.start, dur: res.dur, color: res.color });
+      const patch = { title: res.title, start: res.start, dur: res.dur, color: res.color };
+      if (res.makeTodo) patch.todoId = todoFor(res).id;
+      S.updateBlock(it.owner, it.block.id, patch);
     }
     render();
   }
