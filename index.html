@@ -12,7 +12,7 @@
   <link rel="apple-touch-icon" href="icons/icon-180.png">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="링 계획표">
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css?v=20">
   <script>
     // 저장된 화면 모드(밝게/어둡게)를 그리기 전에 적용해 깜빡임을 막는다.
     try {
@@ -86,6 +86,10 @@
           <button id="exportBtn">백업 파일 내보내기</button>
           <button id="importBtn">백업 파일 가져오기</button>
           <input type="file" id="importFile" accept="application/json,.json" hidden>
+          <div style="width:100%; display:flex; align-items:center; gap:8px; flex-wrap:wrap">
+            <button id="refreshBtn" class="small">앱 새로 받기</button>
+            <span id="versionText" class="note" style="margin:0"></span>
+          </div>
           <div style="width:100%">
             <h4>Todoist 연동</h4>
             <div id="tdOff" class="row">
@@ -209,10 +213,10 @@
     <div id="chooseBtns" class="dlgbtns"></div>
   </dialog>
 
-  <script src="js/store.js"></script>
-  <script src="js/ring.js"></script>
-  <script src="js/gcal.js"></script>
-  <script src="js/todoist.js"></script>
-  <script src="js/app.js"></script>
+  <script src="js/store.js?v=20"></script>
+  <script src="js/ring.js?v=20"></script>
+  <script src="js/gcal.js?v=20"></script>
+  <script src="js/todoist.js?v=20"></script>
+  <script src="js/app.js?v=20"></script>
 </body>
 </html>

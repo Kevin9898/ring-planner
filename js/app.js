@@ -4,6 +4,7 @@
   const S = RP.store;
   const DAY = S.DAY;
   const WEEK = ['일', '월', '화', '수', '목', '금', '토'];
+  const VERSION = '20'; // 올릴 때마다 올린다. 설정에 표시되어 기기가 최신 파일을 쓰는지 확인할 수 있다.
   const DAILY_PLAN_CALENDAR = '일일계획표'; // 링 가운데 "현재 작업"에 쓰는 구글 캘린더 이름
 
   const $ = (sel) => document.querySelector(sel);
@@ -856,6 +857,19 @@
   const darkQuery = matchMedia('(prefers-color-scheme: dark)');
   if (darkQuery.addEventListener) darkQuery.addEventListener('change', applyTheme);
   applyTheme();
+
+  // ---------- 버전 / 새로 받기 ----------
+  // 홈 화면 앱에는 새로고침 버튼이 없어서, 저장해 둔 옛 파일을 버리고 다시 받는 버튼을 둔다.
+  $('#versionText').textContent = '버전 ' + VERSION;
+  $('#refreshBtn').onclick = async () => {
+    try {
+      const regs = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(regs.map((r) => r.update()));
+      const keys = await caches.keys();
+      await Promise.all(keys.map((k) => caches.delete(k)));
+    } catch (e) {}
+    location.replace(location.pathname + '?r=' + Date.now());
+  };
 
   // ---------- 설정 / 백업 ----------
   $('#snapSel').value = String(S.state.settings.snap);
