@@ -83,6 +83,12 @@
       // 이동 중인 블록은 맨 위에 그린다.
       items.sort((x, y) => (keyOf(x) === moving) - (keyOf(y) === moving));
 
+      // 다른 캘린더의 일정(읽기 전용)은 링 안쪽에 얇은 띠로 표시한다.
+      for (const x of v.externals || []) {
+        const a = Math.max(0, x.s), b = Math.min(DAY, x.e);
+        if (b > a) h += `<path class="ext" fill="${x.color}" d="${arc(a, b, ro, RI - 3, RI - 9)}"/>`;
+      }
+
       let handles = '';
       for (const it of items) {
         const a = Math.max(0, it.s), b = Math.min(DAY, it.e);

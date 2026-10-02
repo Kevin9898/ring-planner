@@ -51,7 +51,7 @@
   const ringMode = () => (S.state.settings.mode === 'rotating' && isToday() ? 'rotating' : 'fixed');
 
   const ring = RP.createRing($('#ring'), {
-    getView: () => ({ items: items(), selectedKey: sel, mode: ringMode(), snap: S.state.settings.snap, clockMin: nowMin(), showNow: isToday() }),
+    getView: () => ({ items: items(), externals: RP.gcal.externals(cur).items, selectedKey: sel, mode: ringMode(), snap: S.state.settings.snap, clockMin: nowMin(), showNow: isToday() }),
     onSelect: (it) => {
       sel = it ? keyOf(it) : null;
       render();
@@ -81,6 +81,7 @@
     renderCenter();
     renderSelbar();
     renderDayList();
+    renderGoogle();
     $('#modeBtn').textContent = S.state.settings.mode === 'rotating' ? '회전식 (지금이 위)' : '고정식 (0시가 위)';
   }
 
@@ -147,10 +148,20 @@
   });
 
   function renderDayList() {
-    const its = items();
+    const ex = RP.gcal.externals(cur);
+    $('#allDay').innerHTML = ex.allDay.map((a) => `종일 · ${esc(a.title)}`).join(' &nbsp; ');
+    const its = items().concat(ex.items.map((x) => Object.assign({ ext: true }, x))).sort((a, b) => a.s - b.s);
     $('#dayList').innerHTML = its.length
       ? its
           .map((it) => {
+            if (it.ext) {
+              return `<li class="ext">
+              <span class="dot" style="background:${esc(it.color)}"></span>
+              <span class="when">${fmt(Math.max(0, it.s))}–${fmt(Math.min(DAY, it.e))}</span>
+              <span class="name">${esc(it.title)}</span>
+              <span class="extra">${esc(it.cal)}</span>
+            </li>`;
+            }
             const extra = crossText(it);
             return `<li data-key="${esc(keyOf(it))}" class="${keyOf(it) === sel ? 'sel' : ''}${it.done ? ' done' : ''}">
               <span class="dot" style="background:${it.color}"></span>
@@ -180,6 +191,7 @@
     cur = key;
     sel = null;
     render();
+    RP.gcal.sync(cur);
   }
   $('#prevDay').onclick = () => go(S.addDays(cur, -1));
   $('#nextDay').onclick = () => go(S.addDays(cur, 1));
@@ -524,6 +536,62 @@
     }
   };
 
+  // ---------- 구글 캘린더 ----------
+  function renderGoogle() {
+    const st = RP.gcal.status;
+    const text = { off: '', idle: '', syncing: '구글 캘린더 동기화 중…', ok: '구글 캘린더 동기화됨', expired: '구글 연결이 만료되었습니다.', error: st.text }[st.state];
+    const label = { off: 'Google 캘린더 연결', idle: '지금 동기화', syncing: '', ok: '지금 동기화', expired: '다시 연결', error: '다시 시도' }[st.state];
+    $('#gStatus').textContent = st.state === 'off' && st.text ? st.text : text;
+    $('#gStatus').className = st.state === 'error' || st.state === 'expired' ? 'err' : '';
+    $('#gBtn').textContent = label;
+    $('#gBtn').hidden = !label;
+
+    const connected = !!S.state.settings.gcal;
+    $('#gSettings').hidden = !connected;
+    const hidden = S.state.settings.hiddenCals;
+    $('#calList').innerHTML = RP.gcal.calendars
+      .map((c) => `<li><label><input type="checkbox" value="${esc(c.id)}" ${hidden.includes(c.id) ? '' : 'checked'}><span class="dot" style="background:${esc(c.color)}"></span>${esc(c.name)}</label></li>`)
+      .join('');
+  }
+
+  $('#gBtn').onclick = () => {
+    const state = RP.gcal.status.state;
+    if (state === 'off' || state === 'expired' || !S.state.settings.gcal) RP.gcal.connect();
+    else RP.gcal.sync(cur, true);
+  };
+  $('#calList').onchange = (ev) => {
+    const id = ev.target.value;
+    const hidden = S.state.settings.hiddenCals.filter((x) => x !== id);
+    if (!ev.target.checked) hidden.push(id);
+    S.setSetting('hiddenCals', hidden);
+    RP.gcal.sync(cur);
+  };
+  $('#gDisconnect').onclick = async () => {
+    if ((await choose('구글 연결을 해제할까요?\n이 기기에 저장된 일정과 구글 캘린더의 일정은 그대로 남습니다.', ['해제', '취소'])) === 0) RP.gcal.disconnect();
+  };
+
+  // 일정을 바꾸면 잠시 뒤 구글에 반영한다.
+  let syncTimer = null;
+  S.onChange = () => {
+    clearTimeout(syncTimer);
+    syncTimer = setTimeout(() => RP.gcal.sync(cur), 1200);
+  };
+  let lastFocusSync = Date.now();
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden || Date.now() - lastFocusSync < 60000) return;
+    lastFocusSync = Date.now();
+    RP.gcal.sync(cur);
+  });
+
+  RP.gcal.init({
+    currentKey: () => cur,
+    onStatus: renderGoogle,
+    // 드래그 중이거나 대화상자가 열려 있으면 화면을 건드리지 않는다 (끝나면 다시 그려진다).
+    onChange: () => {
+      if (!dragInfo && !document.querySelector('dialog[open]') && !$('#view-ring').hidden) render();
+    },
+  });
+
   // ---------- 탭 ----------
   document.querySelectorAll('.tab').forEach((btn) => {
     btn.onclick = () => {
@@ -557,4 +625,5 @@
 
   fillEst($('#tEst'), 60);
   render();
+  RP.gcal.sync(cur);
 })();

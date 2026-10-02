@@ -11,7 +11,8 @@
     days: {},
     templates: [],
     todos: [],
-    settings: { mode: 'fixed', snap: 10 },
+    tomb: [], // 로컬에서 지웠지만 아직 구글 캘린더에서 지우지 못한 이벤트 id
+    settings: { mode: 'fixed', snap: 10, hiddenCals: [] },
   });
 
   function normalize(s) {
@@ -20,6 +21,7 @@
       days: s.days || d.days,
       templates: s.templates || d.templates,
       todos: s.todos || d.todos,
+      tomb: s.tomb || d.tomb,
       settings: Object.assign(d.settings, s.settings),
     };
   }
@@ -35,6 +37,8 @@
   }
 
   let state = load();
+  let onChange = null; // 사용자가 일정을 바꿨을 때 불린다 (동기화 예약용)
+  const changed = () => onChange && onChange();
 
   function save() {
     try {
@@ -79,6 +83,7 @@
     if (b.todoId) block.todoId = b.todoId;
     (state.days[key] = state.days[key] || []).push(block);
     save();
+    changed();
     return block;
   }
 
@@ -86,14 +91,29 @@
     const b = ownBlocks(key).find((x) => x.id === id);
     if (!b) return;
     Object.assign(b, patch);
+    b.rev = (b.rev || 0) + 1;
+    if (b.sy === 'ok') b.sy = 'dirty';
     save();
+    changed();
   }
 
-  function removeBlock(key, id) {
+  // 동기화 쪽에서 쓰는 원시 조작: 구글에 삭제를 전파하지 않는다.
+  function dropBlock(key, id) {
     const list = ownBlocks(key).filter((x) => x.id !== id);
     if (list.length) state.days[key] = list;
     else delete state.days[key];
+  }
+
+  function insertBlock(key, block) {
+    (state.days[key] = state.days[key] || []).push(block);
+  }
+
+  function removeBlock(key, id) {
+    const b = ownBlocks(key).find((x) => x.id === id);
+    if (b && b.gid) state.tomb.push(b.gid);
+    dropBlock(key, id);
     save();
+    changed();
   }
 
   // 그 날 비어 있는 첫 자리를 찾는다. 없으면 from 위치에 겹쳐 놓는다.
@@ -176,9 +196,11 @@
     const t = state.templates.find((x) => x.id === id);
     if (!t) return;
     const clones = t.blocks.map((b) => Object.assign({ id: uid() }, b));
+    if (replace) for (const b of ownBlocks(key)) if (b.gid) state.tomb.push(b.gid);
     state.days[key] = replace ? clones : ownBlocks(key).concat(clones);
     if (!state.days[key].length) delete state.days[key];
     save();
+    changed();
   }
 
   // ---- 설정 / 백업 ----
@@ -204,6 +226,13 @@
     get state() {
       return state;
     },
+    set onChange(fn) {
+      onChange = fn;
+    },
+    save,
+    uid,
+    dropBlock,
+    insertBlock,
     dateKey,
     parseKey,
     addDays,
