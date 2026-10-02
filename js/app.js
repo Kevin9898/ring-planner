@@ -4,7 +4,6 @@
   const S = RP.store;
   const DAY = S.DAY;
   const WEEK = ['일', '월', '화', '수', '목', '금', '토'];
-  const EST = [15, 30, 45, 60, 90, 120, 180, 240];
   const DAILY_PLAN_CALENDAR = '일일계획표'; // 링 가운데 "현재 작업"에 쓰는 구글 캘린더 이름
 
   const $ = (sel) => document.querySelector(sel);
@@ -433,26 +432,30 @@
     const act = ev.target.dataset.act;
     const cardEl = ev.target.closest('.card');
     if (act === 'add') {
+      // 열 안에서 바로 제목·마감·예상 소요 시간을 적어 추가한다.
       const col = ev.target.closest('.col');
-      const input = document.createElement('input');
-      input.className = 'addinput';
-      input.placeholder = '할 일을 적고 Enter';
-      ev.target.replaceWith(input);
-      input.focus();
-      let finished = false;
-      const finish = (save) => {
-        if (finished) return;
-        finished = true;
-        const title = input.value.trim();
-        if (save && title) S.addTodo({ title, due: col.dataset.date || null, est: 60 });
+      const form = document.createElement('form');
+      form.className = 'addform';
+      form.innerHTML = `<input name="title" placeholder="할 일" required autocomplete="off">
+        <div class="row">
+          <input type="date" name="due" value="${col.dataset.date}" aria-label="마감일">
+          <input name="est" value="1시간" placeholder="소요 시간" autocomplete="off" aria-label="예상 소요 시간">
+        </div>
+        <div class="row"><span class="sp"></span><button type="button" class="small" data-cancel>취소</button><button class="small primary">추가</button></div>`;
+      ev.target.replaceWith(form);
+      const f = form.elements;
+      f.title.focus();
+      f.est.oninput = () => f.est.setCustomValidity('');
+      form.onsubmit = (e) => {
+        e.preventDefault();
+        const est = readEst(f.est);
+        const title = f.title.value.trim();
+        if (est === null || !title) return;
+        S.addTodo({ title, due: f.due.value || null, est });
         renderTodos();
       };
-      input.onkeydown = (e) => {
-        if (e.isComposing) return; // 한글 조합 중의 Enter 는 무시
-        if (e.key === 'Enter') finish(true);
-        else if (e.key === 'Escape') finish(false);
-      };
-      input.onblur = () => finish(true);
+      form.querySelector('[data-cancel]').onclick = () => renderTodos();
+      form.onkeydown = (e) => e.key === 'Escape' && renderTodos();
       return;
     }
     if (!cardEl) return;
@@ -614,16 +617,34 @@
     $('#todoList').innerHTML = h;
   }
 
-  function fillEst(selEl, value) {
-    const opts = EST.includes(value) ? EST : [...EST, value].sort((a, b) => a - b);
-    selEl.innerHTML = opts.map((m) => `<option value="${m}" ${m === value ? 'selected' : ''}>${fmtDur(m)}</option>`).join('');
+  // 예상 소요 시간을 글자로 받아 분으로 바꾼다. "90", "90분", "1시간 30분", "1.5시간", "1:30", "1h 30m" 모두 된다.
+  function parseEst(value) {
+    const v = String(value).trim().toLowerCase();
+    const fit = (m) => Math.max(5, Math.min(DAY, Math.round(m)));
+    if (!v) return 60;
+    const clock = v.match(/^(\d+):(\d{1,2})$/);
+    if (clock) return fit(Number(clock[1]) * 60 + Number(clock[2]));
+    const h = v.match(/(\d+(?:\.\d+)?)\s*(시간|h)/);
+    const m = v.match(/(\d+)\s*(분|m)/);
+    if (h || m) return fit((h ? parseFloat(h[1]) * 60 : 0) + (m ? Number(m[1]) : 0));
+    return /^\d+(\.\d+)?$/.test(v) ? fit(parseFloat(v)) : null;
+  }
+
+  // 입력 칸의 값을 분으로 읽는다. 알아볼 수 없으면 칸에 안내를 띄우고 null 을 돌려준다.
+  function readEst(input) {
+    const est = parseEst(input.value);
+    input.setCustomValidity(est === null ? '예: 90, 1시간 30분, 1.5시간' : '');
+    if (est === null) input.reportValidity();
+    return est;
   }
 
   $('#todoForm').onsubmit = (ev) => {
     ev.preventDefault();
     const title = $('#tTitle').value.trim();
     if (!title) return;
-    S.addTodo({ title, due: $('#tDue').value || null, est: Number($('#tEst').value) });
+    const est = readEst($('#tEst'));
+    if (est === null) return;
+    S.addTodo({ title, due: $('#tDue').value || null, est });
     $('#tTitle').value = '';
     renderTodos();
   };
@@ -648,10 +669,13 @@
       const dlg = $('#dlgTodo');
       $('#eTitle').value = t.title;
       $('#eDue').value = t.due || '';
-      fillEst($('#eEst'), t.est);
+      $('#eEst').value = fmtDur(t.est);
+      $('#eEst').setCustomValidity('');
       $('#todoEditForm').onsubmit = (ev) => {
         ev.preventDefault();
-        S.updateTodo(t.id, { title: $('#eTitle').value.trim() || t.title, due: $('#eDue').value || null, est: Number($('#eEst').value) });
+        const est = readEst($('#eEst'));
+        if (est === null) return;
+        S.updateTodo(t.id, { title: $('#eTitle').value.trim() || t.title, due: $('#eDue').value || null, est });
         dlg.close();
       };
       $('#eCancel').onclick = () => dlg.close();
@@ -860,7 +884,7 @@
     onStatus: renderGoogle,
     // 드래그 중이거나 대화상자가 열려 있으면 화면을 건드리지 않는다 (끝나면 다시 그려진다).
     onChange: () => {
-      if (dragInfo || document.querySelector('dialog[open]')) return;
+      if (dragInfo || document.querySelector('dialog[open], .addform')) return;
       if ($('#view-ring').hidden) renderTodos();
       else render();
     },
@@ -901,7 +925,7 @@
   RP.todoist.init({
     onStatus: renderTodoist,
     onChange: () => {
-      if (dragInfo || document.querySelector('dialog[open]')) return;
+      if (dragInfo || document.querySelector('dialog[open], .addform')) return;
       if ($('#view-ring').hidden) renderTodos();
       else render();
     },
@@ -939,7 +963,7 @@
     if (!$('#view-ring').hidden && !dragInfo && !document.querySelector('dialog[open]')) render();
   }, 20000);
 
-  fillEst($('#tEst'), 60);
+  $('#tEst').oninput = $('#eEst').oninput = (ev) => ev.target.setCustomValidity('');
   render();
   syncAll();
 })();

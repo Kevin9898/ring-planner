@@ -305,7 +305,11 @@ main.wide { max-width: 1280px; }
 .board .col.over .meta .due { color: var(--danger); }
 .board .addcard { display: block; width: calc(100% - 4px); margin: 0 2px; text-align: left; border: none; background: transparent; color: var(--muted); padding: 8px 10px; }
 .board .addcard:hover { color: var(--accent); }
-.board .addinput { width: calc(100% - 4px); margin: 0 2px; }
+.board .addform { background: var(--card); border: 1px solid var(--accent); border-radius: 12px; padding: 10px; margin: 0 2px 8px; }
+.board .addform input { width: 100%; padding: 6px 8px; font-size: 14px; }
+.board .addform .row { margin: 8px 0 0; gap: 6px; }
+.board .addform .row input { flex: 1 1 0; }
+input.est { width: 9em; }
 
 /* ---- 대화상자 ---- */
 dialog {

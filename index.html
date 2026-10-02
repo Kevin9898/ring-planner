@@ -98,7 +98,7 @@
       <form id="todoForm" class="todoform">
         <input id="tTitle" placeholder="해야 할 일" required autocomplete="off">
         <label>마감 <input type="date" id="tDue"></label>
-        <label>예상 <select id="tEst"></select></label>
+        <label>예상 <input id="tEst" class="est" value="1시간" placeholder="예: 90, 1시간 30분" autocomplete="off"></label>
         <button class="primary">추가</button>
       </form>
       <div class="viewsw">
@@ -141,7 +141,7 @@
       <input id="eTitle" required autocomplete="off">
       <div class="row">
         <label>마감 <input type="date" id="eDue"></label>
-        <label>예상 <select id="eEst"></select></label>
+        <label>예상 <input id="eEst" class="est" placeholder="예: 90, 1시간 30분" autocomplete="off"></label>
       </div>
       <div class="dlgbtns">
         <button type="button" id="eDelete" class="danger">삭제</button>
