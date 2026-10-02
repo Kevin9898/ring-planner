@@ -171,10 +171,7 @@
     if (gone && gone.tid) state.ttomb.push(gone.tid);
     state.tDirty = true;
     state.todos = state.todos.filter((t) => t.id !== id);
-    for (const key of Object.keys(state.days)) {
-      for (const b of state.days[key]) if (b.todoId === id) delete b.todoId;
-    }
-    state.gone[id] = Date.now();
+    purgeTodo(id); // 링에 넣어 둔 일정도 함께 지운다
     dataChanged();
   }
 

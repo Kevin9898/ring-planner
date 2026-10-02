@@ -325,7 +325,7 @@
   }
 
   // ---------- 할 일 보드 (날짜별 열) ----------
-  const BOARD_DAYS = 14;
+  let weekOffset = 0; // 0 = 이번 주, 1 = 다음 주 …
   const todoView = () => S.state.settings.todoView || 'board';
 
   function renderBoard() {
@@ -333,19 +333,28 @@
     const sched = S.todoSchedule();
     const today = todayKey();
     const open = sortedTodos().filter((t) => !t.done);
-    const last = S.addDays(today, BOARD_DAYS - 1);
+    // 주는 일요일에 시작한다. 이미 지난 날짜는 열로 만들지 않고 "기한이 지난"에 모은다.
+    const weekStart = S.addDays(today, -S.parseKey(today).getDay() + 7 * weekOffset);
+    const weekEnd = S.addDays(weekStart, 6);
+    const tomorrow = S.addDays(today, 1);
+    const over = { title: '기한이 지난', items: open.filter((t) => t.due && t.due < today), cls: 'over pin', showDue: true };
     const cols = [];
-    const over = open.filter((t) => t.due && t.due < today);
-    if (over.length) cols.push({ title: '기한이 지난', items: over, cls: 'over', showDue: true });
-    for (let i = 0; i < BOARD_DAYS; i++) {
-      const k = S.addDays(today, i);
+    for (let i = 0; i < 7; i++) {
+      const k = S.addDays(weekStart, i);
+      if (k < today) continue;
       const d = S.parseKey(k);
-      const name = i === 0 ? '오늘' : i === 1 ? '내일' : WEEK[d.getDay()] + '요일';
+      const name = k === today ? '오늘' : k === tomorrow ? '내일' : WEEK[d.getDay()] + '요일';
       cols.push({ date: k, title: `${d.getMonth() + 1}월 ${d.getDate()}일 · ${name}`, items: open.filter((t) => t.due === k) });
     }
-    const later = open.filter((t) => t.due && t.due > last);
-    if (later.length) cols.push({ title: '그 이후', items: later, showDue: true });
     cols.push({ date: '', title: '마감 없음', items: open.filter((t) => !t.due) });
+
+    const md = (k) => {
+      const d = S.parseKey(k);
+      return `${d.getMonth() + 1}월 ${d.getDate()}일`;
+    };
+    $('#weekText').textContent = `${md(weekStart)} – ${md(weekEnd)}` + (weekOffset === 0 ? ' (이번 주)' : weekOffset === 1 ? ' (다음 주)' : '');
+    $('#weekPrev').disabled = weekOffset === 0;
+    $('#weekNow').hidden = weekOffset === 0;
 
     const card = (t, c) => {
       const meta = [];
@@ -367,19 +376,20 @@
       return `<div class="dayblocks">${rows.join('')}</div>`;
     };
 
-    const left = board.scrollLeft;
-    board.innerHTML = cols
-      .map((c) => {
-        const droppable = c.date !== undefined;
-        return `<div class="col ${c.cls || ''}" ${droppable ? `data-date="${c.date}"` : ''}>
+    const column = (c) => {
+      const droppable = c.date !== undefined;
+      return `<div class="col ${c.cls || ''}" ${droppable ? `data-date="${c.date}"` : ''}>
           <div class="colhead">${c.title}<span class="n">${c.items.length}</span></div>
           ${c.date ? dayBlocks(c.date) : ''}
           ${c.items.map((t) => card(t, c)).join('')}
-          ${droppable ? '<button class="addcard" data-act="add">+ 작업 추가</button>' : ''}
+          ${droppable ? '<button class="addcard" data-act="add">+ 작업 추가</button>' : c.items.length ? '' : '<div class="none">없음</div>'}
         </div>`;
-      })
-      .join('');
-    board.scrollLeft = left;
+    };
+    const old = board.querySelector('.scroller');
+    const left = old && board.dataset.week === weekStart ? old.scrollLeft : 0;
+    board.dataset.week = weekStart;
+    board.innerHTML = column(over) + `<div class="scroller">${cols.map(column).join('')}</div>`;
+    board.querySelector('.scroller').scrollLeft = left;
   }
 
   $('#todoBoard').addEventListener('click', async (ev) => {
@@ -447,6 +457,14 @@
     renderTodos();
   });
 
+  const goWeek = (n) => {
+    weekOffset = Math.max(0, n);
+    renderTodos();
+  };
+  $('#weekPrev').onclick = () => goWeek(weekOffset - 1);
+  $('#weekNext').onclick = () => goWeek(weekOffset + 1);
+  $('#weekNow').onclick = () => goWeek(0);
+
   document.querySelectorAll('.viewsw button').forEach((btn) => {
     btn.onclick = () => {
       S.setSetting('todoView', btn.dataset.tv);
@@ -459,6 +477,7 @@
     document.querySelectorAll('.viewsw button').forEach((b) => b.classList.toggle('on', b.dataset.tv === todoView()));
     document.querySelector('main').classList.toggle('wide', boardMode && !$('#view-todos').hidden);
     $('#todoBoard').hidden = !boardMode;
+    $('#weekNav').hidden = !boardMode;
     $('#todoList').hidden = boardMode;
     if (boardMode) return renderBoard();
     const sched = S.todoSchedule();
@@ -504,7 +523,7 @@
     const t = S.todo(li.dataset.id);
     if (act === 'toggle') S.updateTodo(t.id, { done: ev.target.checked });
     else if (act === 'del') {
-      if ((await choose(`"${t.title}" 을(를) 삭제할까요?\n링에 넣어 둔 일정은 그대로 남습니다.`, ['삭제', '취소'])) !== 0) return;
+      if ((await choose(`"${t.title}" 을(를) 삭제할까요?\n링에 넣어 둔 일정도 함께 삭제됩니다.`, ['삭제', '취소'])) !== 0) return;
       S.removeTodo(t.id);
     } else if (act === 'edit') {
       await todoDialog(t);
@@ -526,7 +545,7 @@
       $('#eCancel').onclick = () => dlg.close();
       $('#eDelete').onclick = async () => {
         dlg.close();
-        if ((await choose(`"${t.title}" 을(를) 삭제할까요? 링에 넣어 둔 일정은 그대로 남습니다.`, ['삭제', '취소'])) === 0) S.removeTodo(t.id);
+        if ((await choose(`"${t.title}" 을(를) 삭제할까요? 링에 넣어 둔 일정도 함께 삭제됩니다.`, ['삭제', '취소'])) === 0) S.removeTodo(t.id);
         renderTodos();
       };
       dlg.onclose = () => resolve();
