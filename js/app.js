@@ -4,7 +4,7 @@
   const S = RP.store;
   const DAY = S.DAY;
   const WEEK = ['일', '월', '화', '수', '목', '금', '토'];
-  const VERSION = '24'; // 올릴 때마다 올린다. 설정에 표시되어 기기가 최신 파일을 쓰는지 확인할 수 있다.
+  const VERSION = '25'; // 올릴 때마다 올린다. 설정에 표시되어 기기가 최신 파일을 쓰는지 확인할 수 있다.
   const DAILY_PLAN_CALENDAR = '일일계획표'; // 링 가운데 "현재 작업"에 쓰는 구글 캘린더 이름
 
   const $ = (sel) => document.querySelector(sel);
@@ -423,6 +423,65 @@
     return parts.map((p) => `<span>${p}</span>`).join('');
   }
 
+  // ---------- 마감일 변경과 링 일정 따라 옮기기 ----------
+  // 할 일의 마감일이 바뀌면, 그 할 일로 "원래 마감일의 링"에 넣어 둔 일정을 새 날짜의 같은 시각으로 옮긴다.
+  const linkedBlocks = (todoId, date) => (date ? S.ownBlocks(date).filter((b) => b.todoId === todoId) : []);
+
+  // 새 날짜의 같은 시간에 이미 다른 일정이 있으면 그 일정을 돌려준다.
+  function findConflict(movers, date) {
+    const others = S.viewItems(date).filter((i) => !movers.includes(i.block));
+    for (const b of movers) {
+      const hit = others.find((i) => Math.max(0, i.s) < Math.min(DAY, b.start + b.dur) && Math.min(DAY, i.e) > b.start);
+      if (hit) return hit;
+    }
+    return null;
+  }
+
+  function moveBlocks(movers, from, to) {
+    for (const b of movers) {
+      S.removeBlock(from, b.id);
+      S.addBlock(to, { title: b.title, start: b.start, dur: b.dur, color: b.color, todoId: b.todoId });
+    }
+  }
+
+  // 겹치는 일정이 있다고 알리고, 그 날짜의 링을 보여 준다.
+  async function showConflict(title, date, hit) {
+    await choose(`${shortDate(date)} ${fmt(Math.max(0, hit.s))}–${fmt(Math.min(DAY, hit.e))} 에 이미 "${hit.block.title}" 일정이 있습니다.\n"${title}" 은(는) 옮기지 않았습니다. 그 날의 링을 보여 드립니다.`, ['확인']);
+    document.querySelector('.tab[data-view="ring"]').click();
+    go(date);
+  }
+
+  // 할 일의 마감일을 바꾼다. 겹치면 아무것도 바꾸지 않고 false 를 돌려준다.
+  async function changeDue(t, due, extra) {
+    const movers = due ? linkedBlocks(t.id, t.due) : [];
+    const hit = movers.length ? findConflict(movers, due) : null;
+    if (hit) {
+      if (extra) S.updateTodo(t.id, extra); // 이름·소요 시간 수정은 그대로 반영한다
+      await showConflict(t.title, due, hit);
+      return false;
+    }
+    const from = t.due;
+    S.updateTodo(t.id, Object.assign({}, extra, { due }));
+    moveBlocks(movers, from, due);
+    return true;
+  }
+
+  // Todoist에서 마감일이 바뀌어 들어온 경우: 마감일은 이미 바뀌었으므로 링 일정만 따라 옮긴다.
+  async function followRemoteDue(moves) {
+    let blocked = null;
+    for (const m of moves) {
+      const t = S.todo(m.id);
+      const movers = linkedBlocks(m.id, m.from);
+      if (!t || !movers.length) continue;
+      const hit = findConflict(movers, m.to);
+      if (hit) blocked = blocked || { title: t.title, date: m.to, hit };
+      else moveBlocks(movers, m.from, m.to);
+    }
+    if ($('#view-ring').hidden) renderTodos();
+    else render();
+    if (blocked) await showConflict(blocked.title, blocked.date, blocked.hit);
+  }
+
   // ---------- 할 일 보드 (날짜별 열) ----------
   let weekOffset = 0; // 0 = 이번 주, 1 = 다음 주 …
   const todoView = () => S.state.settings.todoView || 'board';
@@ -605,7 +664,7 @@
     const t = S.todo(d.todoId);
     if (drop && d.col && t) {
       const due = d.col.dataset.date || null;
-      if (t.due !== due) S.updateTodo(t.id, { due });
+      if (t.due !== due) changeDue(t, due).then((ok) => ok && renderTodos());
     }
     renderTodos();
   }
@@ -739,8 +798,11 @@
         ev.preventDefault();
         const est = readEst($('#eEst'));
         if (est === null) return;
-        S.updateTodo(t.id, { title: $('#eTitle').value.trim() || t.title, due: $('#eDue').value || null, est });
+        const patch = { title: $('#eTitle').value.trim() || t.title, est };
+        const due = $('#eDue').value || null;
         dlg.close();
+        if (due === t.due) S.updateTodo(t.id, patch);
+        else changeDue(t, due, patch).then((ok) => ok && renderTodos());
       };
       $('#eCancel').onclick = () => dlg.close();
       $('#eDelete').onclick = async () => {
@@ -1023,6 +1085,7 @@
 
   RP.todoist.init({
     onStatus: renderTodoist,
+    onDueMoved: followRemoteDue,
     onChange: () => {
       if (dragInfo || document.querySelector('dialog[open], .addform')) return;
       if ($('#view-ring').hidden) renderTodos();
