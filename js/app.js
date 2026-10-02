@@ -340,7 +340,7 @@
       }
       h += `<li data-id="${t.id}" class="${t.done ? 'done' : ''}">
         <input type="checkbox" data-act="toggle" ${t.done ? 'checked' : ''} aria-label="완료">
-        <div class="body"><div class="ttl">${esc(t.title)}</div><div class="meta">${todoMeta(t, sched)}</div></div>
+        <div class="body"><div class="ttl">${esc(t.title)}${t.tid ? '<span class="tag">Todoist</span>' : ''}</div><div class="meta">${todoMeta(t, sched)}</div></div>
         <div class="btns"><button class="small" data-act="edit">수정</button><button class="small danger" data-act="del">삭제</button></div>
       </li>`;
     }
@@ -557,7 +557,7 @@
   $('#gBtn').onclick = () => {
     const state = RP.gcal.status.state;
     if (state === 'off' || state === 'expired' || !S.state.settings.gcal) RP.gcal.connect();
-    else RP.gcal.sync(cur, true);
+    else syncAll(true);
   };
   $('#calList').onchange = (ev) => {
     const id = ev.target.value;
@@ -574,19 +574,60 @@
   let syncTimer = null;
   S.onChange = () => {
     clearTimeout(syncTimer);
-    syncTimer = setTimeout(() => RP.gcal.sync(cur), 1200);
+    syncTimer = setTimeout(() => syncAll(), 1200);
   };
   let lastFocusSync = Date.now();
   document.addEventListener('visibilitychange', () => {
     if (document.hidden || Date.now() - lastFocusSync < 60000) return;
     lastFocusSync = Date.now();
-    RP.gcal.sync(cur);
+    syncAll();
   });
 
   RP.gcal.init({
     currentKey: () => cur,
     onStatus: renderGoogle,
     // 드래그 중이거나 대화상자가 열려 있으면 화면을 건드리지 않는다 (끝나면 다시 그려진다).
+    onChange: () => {
+      if (dragInfo || document.querySelector('dialog[open]')) return;
+      if ($('#view-ring').hidden) renderTodos();
+      else render();
+    },
+  });
+
+  // ---------- Todoist ----------
+  // Todoist를 먼저 맞춘 뒤 구글(드라이브·캘린더)에 올려야 다른 기기가 같은 상태를 받는다.
+  async function syncAll(force) {
+    await RP.todoist.sync(force);
+    RP.gcal.sync(cur, force);
+  }
+
+  function renderTodoist() {
+    const st = RP.todoist.status;
+    const on = RP.todoist.connected && st.state !== 'off';
+    const text = { off: '', idle: 'Todoist에 연결되어 있습니다.', syncing: 'Todoist 동기화 중…', ok: 'Todoist와 동기화됨', error: st.text }[st.state];
+    $('#tdOff').hidden = on;
+    $('#tdOn').hidden = !on;
+    $('#tdState').textContent = text;
+    $('#tdState').style.color = st.state === 'error' ? 'var(--danger)' : '';
+    $('#tStatus').hidden = !on && st.state !== 'error';
+    $('#tStatus').innerHTML = `<span class="${st.state === 'error' ? 'err' : ''}">${esc(text)}</span>`;
+  }
+
+  $('#tdConnect').onclick = async () => {
+    const value = $('#tdToken').value;
+    $('#tdToken').value = '';
+    $('#tdConnect').disabled = true;
+    await RP.todoist.connect(value);
+    $('#tdConnect').disabled = false;
+    if (RP.todoist.connected) RP.gcal.sync(cur);
+  };
+  $('#tdSync').onclick = () => syncAll(true);
+  $('#tdDisconnect').onclick = async () => {
+    if ((await choose('Todoist 연결을 해제할까요? 할 일 목록과 Todoist의 작업은 그대로 남습니다.', ['해제', '취소'])) === 0) RP.todoist.disconnect();
+  };
+
+  RP.todoist.init({
+    onStatus: renderTodoist,
     onChange: () => {
       if (dragInfo || document.querySelector('dialog[open]')) return;
       if ($('#view-ring').hidden) renderTodos();
@@ -627,5 +668,5 @@
 
   fillEst($('#tEst'), 60);
   render();
-  RP.gcal.sync(cur);
+  syncAll();
 })();

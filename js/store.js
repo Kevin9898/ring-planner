@@ -13,6 +13,8 @@
     todos: [],
     gone: {}, // 지운 할 일·템플릿 id -> 지운 시각 (다른 기기에 삭제를 전하기 위해 남긴다)
     dataDirty: false, // 할 일·템플릿이 바뀌었지만 아직 구글 드라이브에 올리지 못함
+    ttomb: [], // 로컬에서 지웠지만 아직 Todoist에서 지우지 못한 작업 id
+    tDirty: false, // Todoist에 알릴 변경이 있음
     tomb: [], // 로컬에서 지웠지만 아직 구글 캘린더에서 지우지 못한 이벤트 id
     settings: { mode: 'fixed', snap: 10, hiddenCals: [] },
   });
@@ -24,6 +26,8 @@
       templates: s.templates || d.templates,
       todos: s.todos || d.todos,
       tomb: s.tomb || d.tomb,
+      ttomb: s.ttomb || d.ttomb,
+      tDirty: !!s.tDirty,
       gone: s.gone || d.gone,
       dataDirty: !!s.dataDirty,
       settings: Object.assign(d.settings, s.settings),
@@ -91,7 +95,10 @@
 
   function addBlock(key, b) {
     const block = { id: uid(), title: b.title, start: b.start, dur: b.dur, color: b.color || nextColor(key) };
-    if (b.todoId) block.todoId = b.todoId;
+    if (b.todoId) {
+      block.todoId = b.todoId;
+      state.tDirty = true;
+    }
     (state.days[key] = state.days[key] || []).push(block);
     save();
     changed();
@@ -103,6 +110,7 @@
     if (!b) return;
     Object.assign(b, patch);
     b.rev = (b.rev || 0) + 1;
+    if (b.todoId) state.tDirty = true;
     if (b.sy === 'ok') b.sy = 'dirty';
     save();
     changed();
@@ -122,6 +130,7 @@
   function removeBlock(key, id) {
     const b = ownBlocks(key).find((x) => x.id === id);
     if (b && b.gid) state.tomb.push(b.gid);
+    if (b && b.todoId) state.tDirty = true;
     dropBlock(key, id);
     save();
     changed();
@@ -143,6 +152,7 @@
   function addTodo(t) {
     const item = { id: uid(), title: t.title, due: t.due || null, est: t.est || 60, done: false, created: Date.now(), mod: Date.now() };
     state.todos.push(item);
+    state.tDirty = true;
     dataChanged();
     return item;
   }
@@ -151,10 +161,15 @@
     const t = todo(id);
     if (!t) return;
     Object.assign(t, patch, { mod: Date.now() });
+    if (t.tid) t.tsy = 'dirty';
+    state.tDirty = true;
     dataChanged();
   }
 
   function removeTodo(id) {
+    const gone = todo(id);
+    if (gone && gone.tid) state.ttomb.push(gone.tid);
+    state.tDirty = true;
     state.todos = state.todos.filter((t) => t.id !== id);
     for (const key of Object.keys(state.days)) {
       for (const b of state.days[key]) if (b.todoId === id) delete b.todoId;
@@ -168,7 +183,7 @@
     const map = {};
     for (const key of Object.keys(state.days).sort()) {
       for (const b of state.days[key]) {
-        if (b.todoId) (map[b.todoId] = map[b.todoId] || []).push({ date: key, start: b.start });
+        if (b.todoId) (map[b.todoId] = map[b.todoId] || []).push({ date: key, start: b.start, dur: b.dur });
       }
     }
     return map;
@@ -244,6 +259,22 @@
     return result;
   }
 
+  // 동기화 쪽에서 할 일을 직접 고친 뒤 부른다 (변경 알림은 보내지 않는다).
+  function markData() {
+    state.dataDirty = true;
+    dataRev++;
+    save();
+  }
+
+  // 중복된 할 일을 없애고, 그 할 일에 묶여 있던 링 일정은 남길 쪽으로 옮긴다.
+  function dropTodo(id, keepId) {
+    state.todos = state.todos.filter((t) => t.id !== id);
+    state.gone[id] = Date.now();
+    for (const key of Object.keys(state.days)) {
+      for (const b of state.days[key]) if (b.todoId === id) b.todoId = keepId;
+    }
+  }
+
   function dataUploaded(rev) {
     if (rev !== dataRev) return; // 올리는 사이에 또 바뀜
     state.dataDirty = false;
@@ -280,6 +311,8 @@
     uid,
     mergeData,
     dataUploaded,
+    markData,
+    dropTodo,
     dropBlock,
     insertBlock,
     dateKey,
