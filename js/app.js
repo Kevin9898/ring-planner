@@ -4,7 +4,7 @@
   const S = RP.store;
   const DAY = S.DAY;
   const WEEK = ['일', '월', '화', '수', '목', '금', '토'];
-  const VERSION = '23'; // 올릴 때마다 올린다. 설정에 표시되어 기기가 최신 파일을 쓰는지 확인할 수 있다.
+  const VERSION = '24'; // 올릴 때마다 올린다. 설정에 표시되어 기기가 최신 파일을 쓰는지 확인할 수 있다.
   const DAILY_PLAN_CALENDAR = '일일계획표'; // 링 가운데 "현재 작업"에 쓰는 구글 캘린더 이름
 
   const $ = (sel) => document.querySelector(sel);
@@ -340,10 +340,13 @@
   // 일정과 짝이 되는 할 일을 만든다: 마감은 일정 날짜, 예상 소요 시간은 일정 길이.
   const todoFor = (res) => S.addTodo({ title: res.title, due: res.date, est: res.dur });
 
-  // 링에서 일정 이름을 바꾸면 연결된 할 일(과 Todoist 작업)의 이름도 같이 바꾼다.
-  function syncTodoTitle(todoId, title) {
+  // 링에서 일정의 이름이나 날짜를 바꾸면 연결된 할 일(과 Todoist 작업)의 이름·마감일도 같이 바꾼다.
+  function syncTodo(todoId, want) {
     const t = todoId && S.todo(todoId);
-    if (t && t.title !== title) S.updateTodo(todoId, { title });
+    if (!t) return;
+    const patch = {};
+    for (const k of Object.keys(want)) if (t[k] !== want[k]) patch[k] = want[k];
+    if (Object.keys(patch).length) S.updateTodo(todoId, patch);
   }
 
   // 방금 저장한 일정이 보이도록, 다른 날짜에 넣었으면 그 날짜로 이동한다 (그 날의 구글 동기화도 이때 돈다).
@@ -362,14 +365,14 @@
     } else if (res.date !== it.owner) {
       // 날짜를 바꾸면 원래 날짜에서 지우고 새 날짜에 다시 만든다 (구글 캘린더에도 그렇게 반영된다).
       const todoId = it.block.todoId || (res.makeTodo ? todoFor(res).id : undefined);
-      syncTodoTitle(it.block.todoId, res.title);
+      syncTodo(it.block.todoId, { title: res.title, due: res.date });
       S.removeBlock(it.owner, it.block.id);
       return showBlock(res.date, S.addBlock(res.date, Object.assign({ todoId }, res)));
     } else {
       const patch = { title: res.title, start: res.start, dur: res.dur, color: res.color };
       if (res.makeTodo) patch.todoId = todoFor(res).id;
       S.updateBlock(it.owner, it.block.id, patch);
-      syncTodoTitle(it.block.todoId, res.title);
+      syncTodo(it.block.todoId, { title: res.title });
     }
     render();
   }
