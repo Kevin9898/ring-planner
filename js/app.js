@@ -81,6 +81,7 @@
     renderCenter();
     renderSelbar();
     renderDayList();
+    renderDayTodos();
     renderGoogle();
     $('#modeBtn').textContent = S.state.settings.mode === 'rotating' ? '회전식 (지금이 위)' : '고정식 (0시가 위)';
   }
@@ -184,6 +185,29 @@
       sel = li.dataset.key;
       render();
     }
+  });
+
+  // 보고 있는 날짜가 마감인 할 일 체크리스트. 체크해도 사라지지 않고 취소선만 그어진다.
+  function renderDayTodos() {
+    const list = S.state.todos.filter((t) => t.due === cur).sort((a, b) => a.created - b.created);
+    const left = list.filter((t) => !t.done).length;
+    $('#dayTodosHead').innerHTML = `이 날의 할 일<span class="n">${list.length ? `${left}개 남음 / 전체 ${list.length}개` : ''}</span>`;
+    $('#dayTodoList').innerHTML = list.length
+      ? list
+          .map(
+            (t) => `<li class="${t.done ? 'done' : ''}"><label>
+              <input type="checkbox" value="${esc(t.id)}" ${t.done ? 'checked' : ''}>
+              <span class="ttl">${esc(t.title)}${t.tid ? '<span class="tag">Todoist</span>' : ''}</span>
+            </label></li>`
+          )
+          .join('')
+      : '<li class="empty">이 날짜가 마감인 할 일이 없습니다.</li>';
+  }
+
+  $('#dayTodoList').addEventListener('change', (ev) => {
+    if (!S.todo(ev.target.value)) return;
+    S.updateTodo(ev.target.value, { done: ev.target.checked });
+    render();
   });
 
   // ---------- 날짜 이동 ----------
