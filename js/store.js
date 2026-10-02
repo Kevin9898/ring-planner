@@ -275,6 +275,18 @@
     }
   }
 
+  // Todoist에서 삭제된 작업: 할 일과 함께 링에 넣어 둔 일정도 지운다 (구글 캘린더에서도 지워지도록 표시).
+  function purgeTodo(id) {
+    for (const key of Object.keys(state.days)) {
+      for (const b of state.days[key]) if (b.todoId === id && b.gid) state.tomb.push(b.gid);
+      const rest = state.days[key].filter((b) => b.todoId !== id);
+      if (rest.length) state.days[key] = rest;
+      else delete state.days[key];
+    }
+    state.todos = state.todos.filter((t) => t.id !== id);
+    state.gone[id] = Date.now();
+  }
+
   function dataUploaded(rev) {
     if (rev !== dataRev) return; // 올리는 사이에 또 바뀜
     state.dataDirty = false;
@@ -313,6 +325,7 @@
     dataUploaded,
     markData,
     dropTodo,
+    purgeTodo,
     dropBlock,
     insertBlock,
     dateKey,

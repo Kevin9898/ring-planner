@@ -217,7 +217,7 @@
       } else if (!t.done) {
         jobs.push(async () => {
           const what = await vanished(t.tid, recentDone);
-          if (what === 'deleted') S.dropTodo(t.id); // Todoist에서 삭제됨 → 여기서도 삭제
+          if (what === 'deleted') S.purgeTodo(t.id); // Todoist에서 삭제됨 → 할 일과 링 일정 모두 삭제
           else Object.assign(live(t), { done: true, mod: Date.now() }); // Todoist에서 완료됨
         });
       }
