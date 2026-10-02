@@ -5,6 +5,7 @@
   const DAY = S.DAY;
   const WEEK = ['일', '월', '화', '수', '목', '금', '토'];
   const EST = [15, 30, 45, 60, 90, 120, 180, 240];
+  const DAILY_PLAN_CALENDAR = '일일계획표'; // 링 가운데 "현재 작업"에 쓰는 구글 캘린더 이름
 
   const $ = (sel) => document.querySelector(sel);
   const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
@@ -102,15 +103,17 @@
     if (isToday()) {
       const n = nowMin();
       // 지금 시각에 걸친 일정 가운데 하나를 고른다.
-      // 우선순위: ① 할 일 목록에서 링에 넣은 일정(완료한 것은 제외) ② 링 계획표의 일정 ③ 다른 구글 캘린더의 일정.
-      // 같은 순위에서는 더 늦게 시작한 쪽을 고른다.
+      // 우선순위: ① 할 일 목록에서 링에 넣은 일정(완료한 것은 제외) ② 구글 "일일계획표" 캘린더의 일정
+      // 둘 다 없으면 ③ 링의 나머지 일정 ④ 다른 구글 캘린더의 일정. 같은 순위에서는 더 늦게 시작한 쪽을 고른다.
       const covers = (i) => i.s <= n && n < i.e;
       const ringNow = its.filter(covers);
+      const extNow = RP.gcal.externals(cur).items.filter(covers);
       const now =
         ringNow.filter((i) => i.block.todoId && !i.done).pop() ||
+        extNow.filter((x) => x.cal.replace(/\s/g, '') === DAILY_PLAN_CALENDAR).pop() ||
         ringNow.filter((i) => !i.block.todoId).pop() ||
         ringNow.pop() ||
-        RP.gcal.externals(cur).items.filter(covers).pop();
+        extNow.pop();
       const next = its.find((i) => i.s > n);
       let h = `<div class="clock">${fmt(n)}</div>`;
       h += now ? `<div class="title">${esc(now.title)}</div><div class="sub">${fmtDur(now.e - n)} 남음</div>` : '<div class="sub">비어 있는 시간</div>';
