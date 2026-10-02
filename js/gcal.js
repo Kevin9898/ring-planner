@@ -33,7 +33,35 @@
 
   function setStatus(state, text) {
     status = { state, text: text || '', at: Date.now() };
+    if (state === 'expired') armAutoRenew();
     cb.onStatus();
+  }
+
+  // 연결은 1시간마다 만료된다. 로그인 창은 사용자의 클릭 안에서만 열 수 있으므로,
+  // 만료 뒤 화면을 처음 누르는 순간에 자동으로 다시 연결한다 (실패하면 버튼으로 남긴다).
+  let armed = false;
+  let autoTried = false;
+  let expiryTimer = null;
+  function armAutoRenew() {
+    if (armed || autoTried || !settings().gcal) return;
+    armed = true;
+    document.addEventListener(
+      'click',
+      function handler(ev) {
+        document.removeEventListener('click', handler, true);
+        armed = false;
+        autoTried = true;
+        if (!ev.target.closest('#gBtn')) connect();
+      },
+      true
+    );
+  }
+  function watchExpiry() {
+    clearTimeout(expiryTimer);
+    if (!token) return;
+    expiryTimer = setTimeout(() => {
+      if (!tokenValid() && settings().gcal) setStatus('expired');
+    }, Math.max(0, token.exp - Date.now() - 20000));
   }
 
   // ---------- 인증 ----------
@@ -76,6 +104,8 @@
       localStorage.setItem(TOKEN_KEY, JSON.stringify(token));
     } catch (e) {}
     S.setSetting('gcal', true);
+    autoTried = false;
+    watchExpiry();
     calendarsLoaded = false;
     sync(cb.currentKey());
   }
@@ -94,7 +124,9 @@
         error_callback: (err) => setStatus(settings().gcal ? 'expired' : 'off', err && err.type === 'popup_failed_to_open' ? '팝업이 차단되었습니다. 팝업을 허용해 주세요.' : ''),
       });
     }
-    tokenClient.requestAccessToken({ prompt: '' });
+    // 계정을 미리 알려 주면 계정 선택 화면 없이 바로 이어진다.
+    const email = settings().gEmail;
+    tokenClient.requestAccessToken(email ? { prompt: '', login_hint: email } : { prompt: '' });
   }
 
   function disconnect() {
@@ -181,6 +213,8 @@
       S.state.tomb = [];
       S.setSetting('gcalId', ringId);
     }
+    const primary = all.find((c) => c.primary);
+    if (primary && primary.id !== settings().gEmail) S.setSetting('gEmail', primary.id);
     calendars = all.filter((c) => c.id !== ringId).map((c) => ({ id: c.id, name: c.summaryOverride || c.summary, color: c.backgroundColor || '#8D99AE' }));
     calendarsLoaded = true;
   }
@@ -379,6 +413,7 @@
   function init(callbacks) {
     cb = callbacks;
     token = loadToken();
+    watchExpiry();
     if (settings().gcal) setStatus(token ? 'idle' : 'expired');
     // 연결 버튼을 누른 즉시 로그인 창을 띄울 수 있도록 미리 불러 둔다.
     loadGis().catch(() => {});
