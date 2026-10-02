@@ -42,6 +42,25 @@
       return `M${f(p1[0])} ${f(p1[1])}A${rOut} ${rOut} 0 ${large} 1 ${f(p2[0])} ${f(p2[1])}L${f(p3[0])} ${f(p3[1])}A${rIn} ${rIn} 0 ${large} 0 ${f(p4[0])} ${f(p4[1])}Z`;
     }
 
+    // 모서리가 둥근 띠 조각. 짧은 조각은 양 끝 모서리가 겹치지 않도록 둥글림을 줄인다.
+    function roundArc(a0, a1, ro, rOut, rIn, radius) {
+      if (a1 - a0 >= DAY) return arc(a0, a1, ro, rOut, rIn);
+      const t0 = angle(a0, ro), t1 = angle(a1, ro);
+      const span = t1 - t0;
+      let c = Math.min(radius, (rOut - rIn) / 2);
+      while (c > 0.5 && 2 * Math.asin(c / (rIn + c)) > span) c *= 0.7;
+      if (c <= 0.5) return arc(a0, a1, ro, rOut, rIn);
+      const dOut = Math.asin(c / (rOut - c)), dIn = Math.asin(c / (rIn + c));
+      const eOut = (rOut - c) * Math.cos(dOut), eIn = (rIn + c) * Math.cos(dIn);
+      const P = (t, r) => f(C + r * Math.cos(t)) + ' ' + f(C + r * Math.sin(t));
+      const bigOut = span - 2 * dOut > Math.PI ? 1 : 0, bigIn = span - 2 * dIn > Math.PI ? 1 : 0;
+      return (
+        `M${P(t0 + dOut, rOut)}A${rOut} ${rOut} 0 ${bigOut} 1 ${P(t1 - dOut, rOut)}A${f(c)} ${f(c)} 0 0 1 ${P(t1, eOut)}` +
+        `L${P(t1, eIn)}A${f(c)} ${f(c)} 0 0 1 ${P(t1 - dIn, rIn)}A${rIn} ${rIn} 0 ${bigIn} 0 ${P(t0 + dIn, rIn)}` +
+        `A${f(c)} ${f(c)} 0 0 1 ${P(t0, eIn)}L${P(t0, eOut)}A${f(c)} ${f(c)} 0 0 1 ${P(t0 + dOut, rOut)}Z`
+      );
+    }
+
     function label(it, a, b, ro) {
       const span = b - a;
       if (span < 40) return '';
@@ -97,7 +116,7 @@
         const lifted = k === moving;
         const selected = k === v.selectedKey;
         const cls = 'blk' + (selected ? ' sel' : '') + (lifted ? ' lift' : '') + (it.done ? ' done' : '') + (it.own ? '' : ' carry');
-        h += `<path class="${cls}" fill="${it.color}" d="${arc(a, b, ro, RO + (lifted ? 5 : 0), RI - (lifted ? 5 : 0))}"/>`;
+        h += `<path class="${cls}" fill="${it.color}" d="${roundArc(a, b, ro, RO + (lifted ? 4 : -2), RI - (lifted ? 4 : -2), 8)}"/>`;
         h += label(it, a, b, ro);
         if (selected && !lifted) {
           if (it.s >= 0) {
@@ -113,7 +132,7 @@
       h += handles;
 
       if (drag && drag.mode === 'create') {
-        h += `<path class="preview" d="${arc(drag.cur.s, Math.min(DAY, drag.cur.e), ro, RO, RI)}"/>`;
+        h += `<path class="preview" d="${roundArc(drag.cur.s, Math.min(DAY, drag.cur.e), ro, RO - 2, RI + 2, 8)}"/>`;
       }
 
       if (v.showNow) {

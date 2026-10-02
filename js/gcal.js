@@ -291,7 +291,7 @@
         title: ev.summary || '(제목 없음)',
         start: st.getHours() * 60 + st.getMinutes(),
         dur: Math.max(5, Math.min(DAY, Math.round((new Date(ev.end.dateTime) - st) / 60000))),
-        color: /^#[0-9a-fA-F]{6}$/.test(priv.rpColor || '') ? priv.rpColor : null,
+        color: /^#[0-9a-fA-F]{6}$/.test(priv.rpColor || '') ? S.mapColor(priv.rpColor) : null,
         todoId: priv.rpTodo || null,
       });
     }

@@ -5,7 +5,14 @@
   const RP = (window.RP = window.RP || {});
   const KEY = 'ringplan.v1';
   const DAY = 1440;
-  const COLORS = ['#5B8DEF', '#F2994A', '#27AE60', '#EB5757', '#9B51E0', '#F2C94C', '#2DB6C4', '#8D99AE'];
+  // 파스텔 팔레트: 하늘, 클레이, 세이지, 로즈, 라벤더, 샌드, 민트, 스톤
+  const COLORS = ['#A9C4E2', '#EBB48F', '#B7CBA0', '#EDB0A8', '#C9BCE3', '#EBD59B', '#A9D3CC', '#CFCBBF'];
+  // 예전 진한 색으로 저장된 일정은 같은 자리의 파스텔 색으로 바꾼다.
+  const OLD_COLORS = ['#5B8DEF', '#F2994A', '#27AE60', '#EB5757', '#9B51E0', '#F2C94C', '#2DB6C4', '#8D99AE'];
+  const mapColor = (c) => {
+    const i = OLD_COLORS.indexOf(String(c).toUpperCase());
+    return i < 0 ? c : COLORS[i];
+  };
 
   const defaults = () => ({
     days: {},
@@ -45,6 +52,28 @@
   }
 
   let state = load();
+  (function migrateColors() {
+    let touched = false;
+    const fix = (b, synced) => {
+      const c = mapColor(b.color);
+      if (c === b.color) return;
+      b.color = c;
+      if (synced && b.sy === 'ok') b.sy = 'dirty'; // 구글 캘린더에 적힌 색도 새로 올린다
+      touched = true;
+    };
+    for (const key of Object.keys(state.days)) state.days[key].forEach((b) => fix(b, true));
+    for (const t of state.templates) {
+      const before = touched;
+      touched = false;
+      t.blocks.forEach((b) => fix(b, false));
+      if (touched) {
+        t.mod = Date.now();
+        state.dataDirty = true;
+      }
+      touched = touched || before;
+    }
+    if (touched) save();
+  })();
   let onChange = null; // 사용자가 일정을 바꿨을 때 불린다 (동기화 예약용)
   const changed = () => onChange && onChange();
   let dataRev = 0;
@@ -310,6 +339,7 @@
   RP.store = {
     DAY,
     COLORS,
+    mapColor,
     get state() {
       return state;
     },

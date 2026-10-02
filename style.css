@@ -1,26 +1,36 @@
+/* 색: Claude의 따뜻한 아이보리·클레이 계열을 바탕으로, 일정에는 파스텔 색을 쓴다. */
 :root {
-  --bg: #f6f5f1;
+  --bg: #faf9f5;
   --card: #ffffff;
-  --text: #1f2328;
-  --muted: #6b7280;
-  --line: #e2dfd6;
-  --track: #e9e6dd;
-  --accent: #3b6cf6;
-  --danger: #d64545;
-  --now: #e5484d;
+  --soft: #f0eee6; /* 옅은 채움: 탭, 요약 상자, 놓을 자리 표시 */
+  --text: #141413;
+  --muted: #73726c;
+  --line: #e8e6dc;
+  --track: #ece9df;
+  --accent: #c96442;
+  --accent-soft: #f5e0d6;
+  --danger: #b53333;
+  --now: #c96442;
+  --shadow: 0 1px 2px rgba(20, 20, 19, .04), 0 4px 14px rgba(20, 20, 19, .05);
+  --r-sm: 12px;
+  --r-md: 16px;
+  --r-lg: 22px;
   color-scheme: light dark;
 }
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #16181c;
-    --card: #1f2227;
-    --text: #e8e9ec;
-    --muted: #9aa1ad;
-    --line: #2f333a;
-    --track: #2a2d33;
-    --accent: #6b93ff;
-    --danger: #ef6a6a;
-    --now: #ff6369;
+    --bg: #262624;
+    --card: #30302e;
+    --soft: #3a3a37;
+    --text: #faf9f5;
+    --muted: #a6a59c;
+    --line: #42423f;
+    --track: #3a3a37;
+    --accent: #d97757;
+    --accent-soft: #4a382f;
+    --danger: #e58a80;
+    --now: #e08a6d;
+    --shadow: 0 1px 2px rgba(0, 0, 0, .2), 0 4px 14px rgba(0, 0, 0, .18);
   }
 }
 
@@ -44,23 +54,26 @@ button, input, select {
 button {
   background: var(--card);
   border: 1px solid var(--line);
-  border-radius: 10px;
-  padding: 8px 12px;
+  border-radius: var(--r-sm);
+  padding: 8px 14px;
   cursor: pointer;
   white-space: nowrap;
+  transition: background .12s, border-color .12s;
 }
-button:hover { border-color: var(--muted); }
+button:hover { background: var(--soft); }
 button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+button.primary:hover { background: var(--accent); filter: brightness(.94); }
 button.danger { color: var(--danger); }
-button.small { padding: 4px 8px; font-size: 13px; border-radius: 8px; }
+button.small { padding: 4px 10px; font-size: 13px; border-radius: 999px; }
 button:disabled { opacity: .45; cursor: default; }
 input, select {
   background: var(--card);
   border: 1px solid var(--line);
-  border-radius: 10px;
-  padding: 8px 10px;
+  border-radius: var(--r-sm);
+  padding: 8px 12px;
   min-width: 0;
 }
+input[type="checkbox"] { accent-color: var(--accent); }
 input:focus-visible, select:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 
 .top {
@@ -71,21 +84,22 @@ input:focus-visible, select:focus-visible, button:focus-visible { outline: 2px s
   padding: 10px 16px;
   padding-top: max(10px, env(safe-area-inset-top));
   border-bottom: 1px solid var(--line);
-  background: var(--card);
+  background: var(--bg);
   position: sticky;
   top: 0;
   z-index: 5;
 }
-.top h1 { font-size: 17px; margin: 0; }
-.tabs { display: flex; gap: 4px; }
-.tab { border: none; background: transparent; padding: 6px 14px; color: var(--muted); }
-.tab.on { background: var(--bg); color: var(--text); font-weight: 600; }
+.top h1 { font-size: 17px; margin: 0; letter-spacing: -.2px; }
+.tabs { display: flex; gap: 2px; background: var(--soft); border-radius: 999px; padding: 3px; }
+.tab { border: none; background: transparent; padding: 5px 16px; color: var(--muted); border-radius: 999px; }
+.tab:hover { background: transparent; color: var(--text); }
+.tab.on { background: var(--card); color: var(--text); font-weight: 600; box-shadow: var(--shadow); }
 
 main { max-width: 640px; margin: 0 auto; padding: 12px 16px 40px; }
 
 /* ---- 링 페이지 ---- */
 .datebar { display: flex; align-items: center; justify-content: center; gap: 6px; }
-.datebar .icon { width: 38px; padding: 6px 0; font-size: 18px; line-height: 1.1; }
+.datebar .icon { width: 38px; padding: 6px 0; font-size: 18px; line-height: 1.1; border-radius: 999px; }
 .datebtn { border: none; background: transparent; font-weight: 600; font-size: 16px; min-width: 150px; }
 .datebtn .badge { margin-left: 6px; }
 
@@ -109,21 +123,21 @@ main { max-width: 640px; margin: 0 auto; padding: 12px 16px 40px; }
 }
 #ring .track { fill: none; stroke: var(--track); }
 #ring .grid { stroke: var(--bg); stroke-width: 1; }
-#ring .tick { stroke: var(--muted); stroke-width: 1; opacity: .6; }
-#ring .tick.major { stroke-width: 1.6; opacity: 1; }
+#ring .tick { stroke: var(--muted); stroke-width: 1; opacity: .5; }
+#ring .tick.major { stroke-width: 1.6; opacity: .9; }
 #ring .hour { fill: var(--muted); font-size: 9px; text-anchor: middle; }
 #ring .hour.major { fill: var(--text); font-weight: 700; font-size: 10.5px; }
-#ring .blk { stroke: var(--bg); stroke-width: 1.5; cursor: grab; }
-#ring .blk.carry { opacity: .7; }
+#ring .blk { stroke: var(--bg); stroke-width: 2; stroke-linejoin: round; cursor: grab; }
+#ring .blk.carry { opacity: .75; }
 #ring .blk.done { opacity: .4; }
 #ring .blk.sel { stroke: var(--text); stroke-width: 2; }
-#ring .blk.lift { filter: drop-shadow(0 2px 5px rgba(0, 0, 0, .4)); stroke: var(--text); stroke-width: 2; cursor: grabbing; }
-#ring .lbl { font-size: 10px; font-weight: 600; text-anchor: middle; fill: #1f2328; pointer-events: none; }
+#ring .blk.lift { filter: drop-shadow(0 3px 6px rgba(20, 20, 19, .3)); stroke: var(--text); stroke-width: 2; cursor: grabbing; }
+#ring .lbl { font-size: 10px; font-weight: 600; text-anchor: middle; fill: #141413; pointer-events: none; }
 #ring .lbl.on-dark { fill: #fff; }
-#ring .lbl.time { font-size: 7.5px; font-weight: 400; opacity: .85; }
+#ring .lbl.time { font-size: 7.5px; font-weight: 400; opacity: .75; }
 #ring .ext { stroke: var(--bg); stroke-width: .8; pointer-events: none; }
 #ring .handle { fill: #fff; stroke-width: 3; cursor: ew-resize; }
-#ring .preview { fill: var(--accent); opacity: .45; }
+#ring .preview { fill: var(--accent); opacity: .35; }
 #ring .nowhand { stroke: var(--now); stroke-width: 2; stroke-linecap: round; pointer-events: none; }
 #ring .nowdot { fill: var(--now); pointer-events: none; }
 
@@ -159,12 +173,10 @@ main { max-width: 640px; margin: 0 auto; padding: 12px 16px 40px; }
 .gbar .err { color: var(--danger); }
 .allday { text-align: center; font-size: 12.5px; color: var(--muted); margin-top: 2px; }
 .allday:empty { display: none; }
-.daylist li.ext { cursor: default; color: var(--muted); }
-.daylist li.ext .dot { border-radius: 2px; }
 .callist { list-style: none; margin: 0; padding: 0; width: 100%; }
 .callist li { padding: 4px 0; }
 .callist label { display: flex; align-items: center; gap: 8px; }
-.callist .dot { display: inline-block; width: 10px; height: 10px; border-radius: 2px; }
+.callist .dot { display: inline-block; width: 10px; height: 10px; border-radius: 3px; }
 .settings-body h4 { width: 100%; margin: 8px 0 0; font-size: 13px; color: var(--muted); font-weight: 600; }
 
 .selbar {
@@ -172,49 +184,61 @@ main { max-width: 640px; margin: 0 auto; padding: 12px 16px 40px; }
   align-items: center;
   flex-wrap: wrap;
   gap: 6px;
-  min-height: 40px;
-  margin: 6px 0;
-  padding: 6px 10px;
-  border-radius: 12px;
+  min-height: 44px;
+  margin: 8px 0;
+  padding: 8px 14px;
+  border-radius: var(--r-md);
   background: var(--card);
   border: 1px solid var(--line);
+  box-shadow: var(--shadow);
   font-size: 14px;
 }
 .selbar .hint { color: var(--muted); font-size: 13px; }
 .selbar .info { flex: 1; min-width: 140px; }
-.selbar .dot, .daylist .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; }
+.selbar .dot, .daylist .dot { display: inline-block; width: 12px; height: 12px; border-radius: 50%; margin-right: 6px; flex: none; }
 
 .actions { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 14px; }
-.actions button { flex: 1 1 auto; }
+.actions button { flex: 1 1 auto; border-radius: 999px; }
 
-.daylist, .todolist, .picklist, .tpllist { list-style: none; margin: 0; padding: 0; }
+/* 목록의 각 줄은 둥근 카드로 보여 준다. */
+.daylist, .todolist, .picklist, .tpllist, .checklist { list-style: none; margin: 0; padding: 0; }
+.daylist li, .checklist li, .todolist li {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  margin-bottom: 6px;
+}
 .daylist li {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 9px 10px;
-  border-bottom: 1px solid var(--line);
+  padding: 10px 14px;
   cursor: pointer;
 }
-.daylist li.sel { background: var(--card); border-radius: 10px; }
+.daylist li:hover { border-color: var(--muted); }
+.daylist li.sel { border-color: var(--accent); background: var(--accent-soft); }
 .daylist li.done .name { text-decoration: line-through; color: var(--muted); }
+.daylist li.ext { cursor: default; color: var(--muted); background: transparent; border-style: dashed; }
+.daylist li.ext:hover { border-color: var(--line); }
+.daylist li.ext .dot { border-radius: 4px; }
 .daylist .when { color: var(--muted); font-variant-numeric: tabular-nums; font-size: 13px; min-width: 96px; }
 .daylist .name { flex: 1; }
 .daylist .extra { color: var(--muted); font-size: 12px; }
-.empty { color: var(--muted); text-align: center; padding: 18px 0; font-size: 14px; }
+.daylist li.empty, .checklist li.empty, .todolist li.empty { background: transparent; border: 1px dashed var(--line); cursor: default; }
+.empty { color: var(--muted); text-align: center; padding: 18px 12px; font-size: 14px; }
 
-.daytodos { margin-top: 20px; }
-.daytodos h3 { font-size: 14px; margin: 0 0 4px; display: flex; align-items: baseline; gap: 8px; }
+.daytodos { margin-top: 22px; }
+.daytodos h3 { font-size: 14px; margin: 0 0 8px; display: flex; align-items: baseline; gap: 8px; }
 .daytodos h3 .n { color: var(--muted); font-weight: 400; font-size: 13px; }
-.checklist { list-style: none; margin: 0; padding: 0; }
-.checklist label { display: flex; align-items: flex-start; gap: 10px; padding: 9px 10px; border-bottom: 1px solid var(--line); cursor: pointer; }
+.checklist label { display: flex; align-items: flex-start; gap: 10px; padding: 10px 14px; cursor: pointer; }
 .checklist input { width: 18px; height: 18px; margin-top: 2px; flex: none; }
 .checklist .ttl { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.checklist li.done { background: transparent; }
 .checklist li.done .ttl { text-decoration: line-through; color: var(--muted); }
 
-.settings { margin-top: 18px; color: var(--muted); font-size: 14px; }
-.settings summary { cursor: pointer; padding: 6px 0; }
-.settings-body { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 0; color: var(--text); }
+.settings { margin-top: 20px; color: var(--muted); font-size: 14px; background: var(--soft); border-radius: var(--r-md); padding: 4px 14px; }
+.settings summary { cursor: pointer; padding: 8px 0; }
+.settings-body { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 4px 0 12px; color: var(--text); }
 
 /* ---- 할 일 페이지 ---- */
 .todoform { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 12px; }
@@ -224,27 +248,27 @@ main { max-width: 640px; margin: 0 auto; padding: 12px 16px 40px; }
   display: flex;
   align-items: flex-start;
   gap: 10px;
-  padding: 10px;
-  border-bottom: 1px solid var(--line);
+  padding: 12px 14px;
 }
 .todolist input[type="checkbox"], .picklist input[type="checkbox"] { width: 18px; height: 18px; margin-top: 2px; flex: none; }
 .todolist .body, .picklist .body { flex: 1; min-width: 0; }
 .todolist .meta, .picklist .meta { color: var(--muted); font-size: 12.5px; display: flex; flex-wrap: wrap; gap: 4px 8px; margin-top: 2px; }
+.todolist li.done { background: transparent; }
 .todolist li.done .ttl { text-decoration: line-through; color: var(--muted); }
 .todolist .btns { display: flex; gap: 4px; }
-.todolist h3 { font-size: 13px; color: var(--muted); margin: 18px 0 4px; font-weight: 600; }
+.todolist h3 { font-size: 13px; color: var(--muted); margin: 18px 0 6px; font-weight: 600; }
 .badge {
   display: inline-block;
   font-size: 11.5px;
   font-weight: 700;
-  padding: 1px 7px;
+  padding: 1px 8px;
   border-radius: 999px;
-  background: var(--track);
+  background: var(--soft);
   color: var(--text);
 }
-.tag { font-size: 11px; color: var(--muted); border: 1px solid var(--line); border-radius: 6px; padding: 0 5px; margin-left: 6px; vertical-align: 1px; }
-.badge.soon { background: #f2c94c; color: #3a2d00; }
-.badge.over { background: var(--danger); color: #fff; }
+.tag { font-size: 11px; color: var(--muted); background: var(--soft); border-radius: 999px; padding: 1px 7px; margin-left: 6px; vertical-align: 1px; }
+.badge.soon { background: #ebd59b; color: #4a3a0c; }
+.badge.over { background: #edb0a8; color: #6b1f17; }
 .badge.today { background: var(--accent); color: #fff; }
 
 /* ---- 할 일 보드 ---- */
@@ -255,7 +279,7 @@ main.wide { max-width: 1280px; }
 .viewsw button.on { background: var(--text); color: var(--bg); border-color: var(--text); }
 /* 왼쪽에 "기한이 지난" 열을 고정하고, 오른쪽에서 날짜 열을 넘겨 본다. 한 화면에 최대 5열. */
 .board { display: flex; align-items: stretch; gap: 12px; min-height: 50vh; }
-.board .col { border-radius: 12px; padding: 4px; min-width: 0; }
+.board .col { border-radius: var(--r-lg); padding: 6px; min-width: 0; background: var(--soft); }
 .board .pin { flex: 0 0 calc((100% - 48px) / 5); }
 .board .scroller {
   flex: 1;
@@ -274,21 +298,22 @@ main.wide { max-width: 1280px; }
   .board .pin { flex-basis: 44%; }
   .board .scroller .col { flex-basis: 100%; }
 }
-.board .col.drop { background: var(--track); }
-.board .colhead { display: flex; align-items: baseline; gap: 8px; padding: 6px 6px 10px; font-weight: 700; font-size: 14px; }
+.board .col.drop { background: var(--accent-soft); outline: 2px dashed var(--accent); outline-offset: -2px; }
+.board .colhead { display: flex; align-items: baseline; gap: 8px; padding: 8px 8px 10px; font-weight: 700; font-size: 14px; }
 .board .colhead .n { color: var(--muted); font-weight: 400; }
 .board .col.over .colhead { color: var(--danger); }
-.board .dayblocks { background: var(--track); border-radius: 8px; padding: 6px 8px; margin: 0 2px 8px; font-size: 12px; color: var(--muted); }
+.board .dayblocks { background: var(--bg); border-radius: var(--r-sm); padding: 8px 10px; margin: 0 2px 8px; font-size: 12px; color: var(--muted); }
 .board .dayblocks div { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.board .dayblocks i { display: inline-block; width: 3px; height: 10px; border-radius: 2px; margin-right: 5px; }
+.board .dayblocks i { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
 .board .card {
   display: flex;
   gap: 10px;
   align-items: flex-start;
   background: var(--card);
   border: 1px solid var(--line);
-  border-radius: 12px;
-  padding: 11px 12px;
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow);
+  padding: 12px 14px;
   margin: 0 2px 8px;
   cursor: pointer;
 }
@@ -296,17 +321,17 @@ main.wide { max-width: 1280px; }
 .board .card { user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
 .board .card.dragging { opacity: .35; }
 .board.ghost { position: fixed; left: 0; top: 0; z-index: 50; display: block; min-height: 0; pointer-events: none; }
-.board.ghost .card { margin: 0; box-shadow: 0 10px 28px rgba(0, 0, 0, .28); transform: rotate(2deg); }
+.board.ghost .card { margin: 0; box-shadow: 0 10px 28px rgba(20, 20, 19, .25); transform: rotate(2deg); }
 .board .check { flex: none; width: 20px; height: 20px; padding: 0; border-radius: 50%; border: 1.5px solid var(--muted); background: transparent; margin-top: 1px; }
-.board .check:hover { background: var(--track); }
+.board .check:hover { background: var(--accent-soft); border-color: var(--accent); }
 .board .card .body { flex: 1; min-width: 0; }
 .board .card .ttl { overflow-wrap: anywhere; }
 .board .card .meta { color: var(--muted); font-size: 12px; display: flex; flex-wrap: wrap; gap: 2px 8px; margin-top: 3px; }
 .board .col.over .meta .due { color: var(--danger); }
-.board .addcard { display: block; width: calc(100% - 4px); margin: 0 2px; text-align: left; border: none; background: transparent; color: var(--muted); padding: 8px 10px; }
-.board .addcard:hover { color: var(--accent); }
-.board .addform { background: var(--card); border: 1px solid var(--accent); border-radius: 12px; padding: 10px; margin: 0 2px 8px; }
-.board .addform input { width: 100%; padding: 6px 8px; font-size: 14px; }
+.board .addcard { display: block; width: calc(100% - 4px); margin: 0 2px; text-align: left; border: none; background: transparent; color: var(--muted); padding: 8px 10px; border-radius: var(--r-sm); }
+.board .addcard:hover { color: var(--accent); background: transparent; }
+.board .addform { background: var(--card); border: 1px solid var(--accent); border-radius: var(--r-md); padding: 10px; margin: 0 2px 8px; }
+.board .addform input { width: 100%; padding: 6px 10px; font-size: 14px; }
 .board .addform .row { margin: 8px 0 0; gap: 6px; }
 .board .addform .row input { flex: 1 1 0; }
 input.est { width: 9em; }
@@ -314,15 +339,16 @@ input.est { width: 9em; }
 /* ---- 대화상자 ---- */
 dialog {
   border: 1px solid var(--line);
-  border-radius: 16px;
+  border-radius: var(--r-lg);
   background: var(--bg);
   color: var(--text);
-  padding: 18px;
+  padding: 20px;
   width: min(92vw, 420px);
   max-height: 86vh;
   overflow-y: auto;
+  box-shadow: 0 20px 60px rgba(20, 20, 19, .25);
 }
-dialog::backdrop { background: rgba(0, 0, 0, .45); }
+dialog::backdrop { background: rgba(20, 20, 19, .4); }
 dialog h2 { font-size: 16px; margin: 0 0 12px; }
 dialog form > input, dialog > form.row > input { width: 100%; }
 .row { display: flex; gap: 10px; margin: 10px 0; align-items: center; }
@@ -332,13 +358,25 @@ dialog form > input, dialog > form.row > input { width: 100%; }
 .note { color: var(--muted); font-size: 13px; margin: 4px 0 10px; }
 .note:empty { display: none; }
 .swatches { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
-.swatches button { width: 30px; height: 30px; padding: 0; border-radius: 50%; border: 2px solid transparent; }
+.swatches button { width: 32px; height: 32px; padding: 0; border-radius: 50%; border: 2px solid transparent; }
+.swatches button:hover { filter: brightness(.95); }
 .swatches button.on { border-color: var(--text); box-shadow: 0 0 0 2px var(--bg) inset; }
 .dlgbtns { display: flex; gap: 8px; margin-top: 14px; align-items: center; flex-wrap: wrap; }
 .dlgbtns .sp { flex: 1; }
-.picklist li, .tpllist li { display: flex; gap: 10px; align-items: flex-start; padding: 9px 2px; border-bottom: 1px solid var(--line); }
+.dlgbtns button { border-radius: 999px; }
+.picklist li, .tpllist li {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 10px 12px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  margin-bottom: 6px;
+}
 .picklist label { display: flex; gap: 10px; flex: 1; cursor: pointer; }
 .picklist li.placed { opacity: .55; }
+.picklist li.empty, .tpllist li.empty { background: transparent; border-style: dashed; display: block; }
 .tpllist li { flex-wrap: wrap; align-items: center; }
 .tpllist .body { flex: 1 1 140px; min-width: 0; }
 .tpllist .meta { color: var(--muted); font-size: 12.5px; }
