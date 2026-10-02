@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#f6f5f1">
+  <title>링 계획표</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="top">
+    <h1>링 계획표</h1>
+    <nav class="tabs">
+      <button class="tab on" data-view="ring">링</button>
+      <button class="tab" data-view="todos">할 일</button>
+    </nav>
+  </header>
+
+  <main>
+    <section id="view-ring">
+      <div class="datebar">
+        <button id="prevDay" class="icon" aria-label="전날">‹</button>
+        <button id="dateBtn" class="datebtn"><span id="dateText"></span></button>
+        <input type="date" id="datePick" class="visually-hidden" tabindex="-1" aria-hidden="true">
+        <button id="nextDay" class="icon" aria-label="다음 날">›</button>
+        <button id="todayBtn">오늘</button>
+      </div>
+
+      <div class="ringwrap">
+        <svg id="ring" viewBox="0 0 400 400" role="img" aria-label="24시간 링"></svg>
+        <div id="center" class="center"></div>
+      </div>
+
+      <div id="selbar" class="selbar"></div>
+
+      <div class="actions">
+        <button id="addBlockBtn" class="primary">+ 일정</button>
+        <button id="pickTodoBtn">할 일에서 추가</button>
+        <button id="templateBtn">템플릿</button>
+        <button id="modeBtn"></button>
+      </div>
+
+      <ul id="dayList" class="daylist"></ul>
+
+      <details class="settings">
+        <summary>설정 · 백업</summary>
+        <div class="settings-body">
+          <label>시간 단위
+            <select id="snapSel">
+              <option value="5">5분</option>
+              <option value="10">10분</option>
+              <option value="15">15분</option>
+              <option value="30">30분</option>
+            </select>
+          </label>
+          <button id="exportBtn">백업 파일 내보내기</button>
+          <button id="importBtn">백업 파일 가져오기</button>
+          <input type="file" id="importFile" accept="application/json,.json" hidden>
+        </div>
+      </details>
+    </section>
+
+    <section id="view-todos" hidden>
+      <form id="todoForm" class="todoform">
+        <input id="tTitle" placeholder="해야 할 일" required autocomplete="off">
+        <label>마감 <input type="date" id="tDue"></label>
+        <label>예상 <select id="tEst"></select></label>
+        <button class="primary">추가</button>
+      </form>
+      <ul id="todoList" class="todolist"></ul>
+    </section>
+  </main>
+
+  <dialog id="dlgBlock">
+    <form id="blockForm">
+      <h2 id="blockHead">일정</h2>
+      <input id="bTitle" placeholder="일정 이름" required autocomplete="off">
+      <div class="row">
+        <label>시작 <input type="time" id="bStart" required></label>
+        <label>종료 <input type="time" id="bEnd" required></label>
+      </div>
+      <p id="bNote" class="note"></p>
+      <div id="bColors" class="swatches"></div>
+      <div class="dlgbtns">
+        <button type="button" id="bDelete" class="danger">삭제</button>
+        <span class="sp"></span>
+        <button type="button" id="bCancel">취소</button>
+        <button class="primary">저장</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="dlgTodo">
+    <form id="todoEditForm">
+      <h2>할 일 수정</h2>
+      <input id="eTitle" required autocomplete="off">
+      <div class="row">
+        <label>마감 <input type="date" id="eDue"></label>
+        <label>예상 <select id="eEst"></select></label>
+      </div>
+      <div class="dlgbtns">
+        <span class="sp"></span>
+        <button type="button" id="eCancel">취소</button>
+        <button class="primary">저장</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="dlgPick">
+    <h2>할 일에서 추가</h2>
+    <p class="note">체크한 일을 이 날짜의 빈 시간에 넣습니다. 넣은 뒤 꾹 눌러 옮기면 됩니다.</p>
+    <ul id="pickList" class="picklist"></ul>
+    <div class="dlgbtns">
+      <span class="sp"></span>
+      <button type="button" id="pickCancel">닫기</button>
+      <button type="button" id="pickAdd" class="primary">링에 추가</button>
+    </div>
+  </dialog>
+
+  <dialog id="dlgTpl">
+    <h2>템플릿</h2>
+    <form id="tplForm" class="row">
+      <input id="tplName" placeholder="템플릿 이름 (예: 평일)" required autocomplete="off">
+      <button class="primary">현재 링 저장</button>
+    </form>
+    <ul id="tplList" class="tpllist"></ul>
+    <div class="dlgbtns">
+      <span class="sp"></span>
+      <button type="button" id="tplClose">닫기</button>
+    </div>
+  </dialog>
+
+  <dialog id="dlgChoose">
+    <p id="chooseMsg"></p>
+    <div id="chooseBtns" class="dlgbtns"></div>
+  </dialog>
+
+  <script src="js/store.js"></script>
+  <script src="js/ring.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
