@@ -96,6 +96,11 @@
         <label>예상 <select id="tEst"></select></label>
         <button class="primary">추가</button>
       </form>
+      <div class="viewsw">
+        <button class="small" data-tv="board">보드</button>
+        <button class="small" data-tv="list">목록</button>
+      </div>
+      <div id="todoBoard" class="board"></div>
       <ul id="todoList" class="todolist"></ul>
     </section>
   </main>
@@ -128,6 +133,7 @@
         <label>예상 <select id="eEst"></select></label>
       </div>
       <div class="dlgbtns">
+        <button type="button" id="eDelete" class="danger">삭제</button>
         <span class="sp"></span>
         <button type="button" id="eCancel">취소</button>
         <button class="primary">저장</button>

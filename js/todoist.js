@@ -128,7 +128,44 @@
     if (now.mod === rev) Object.assign(now, { tsy: 'ok', mod: Date.now() });
   }
 
+  // 진행 중 목록에서 사라진 작업이 완료된 것인지 삭제된 것인지 가린다.
+  // 작업을 직접 조회하고, 조회되지 않으면 최근 완료 목록에 있는지 본다. 둘 다 아니면 삭제로 본다.
+  async function vanished(tid, recentDone) {
+    try {
+      const r = await api('/tasks/' + tid);
+      if (r && !r.is_deleted) return 'done';
+      return 'deleted';
+    } catch (e) {
+      if (e.status !== 404) throw e;
+    }
+    let done;
+    try {
+      done = await recentDone();
+    } catch (e) {
+      if (e.status === 401 || e.status === 403) throw e;
+      return 'done'; // 확인할 수 없으면 지우지 않는다
+    }
+    return done.has(tid) ? 'done' : 'deleted';
+  }
+
+  async function completedIds() {
+    const ids = new Set();
+    const until = new Date(Date.now() + 86400000).toISOString();
+    const since = new Date(Date.now() - 60 * 86400000).toISOString();
+    let cursor = '';
+    do {
+      const q = new URLSearchParams({ since, until, limit: '200' });
+      if (cursor) q.set('cursor', cursor);
+      const r = await api('/tasks/completed/by_completion_date?' + q);
+      for (const it of (r && r.items) || []) ids.add(String(it.id));
+      cursor = (r && r.next_cursor) || '';
+    } while (cursor);
+    return ids;
+  }
+
   async function reconcile() {
+    let donePromise = null;
+    const recentDone = () => donePromise || (donePromise = completedIds());
     const tasks = await listTasks();
     const remote = new Map(tasks.filter((r) => !r.checked && !r.is_deleted).map((r) => [String(r.id), r]));
     const jobs = [];
@@ -178,7 +215,11 @@
         const desc = withLine(r.description, line);
         if (desc !== (r.description || '')) jobs.push(() => api('/tasks/' + t.tid, { method: 'POST', body: { description: desc } }));
       } else if (!t.done) {
-        Object.assign(t, { done: true, mod: Date.now() }); // Todoist에서 완료(또는 삭제)됨
+        jobs.push(async () => {
+          const what = await vanished(t.tid, recentDone);
+          if (what === 'deleted') S.dropTodo(t.id); // Todoist에서 삭제됨 → 여기서도 삭제
+          else Object.assign(live(t), { done: true, mod: Date.now() }); // Todoist에서 완료됨
+        });
       }
     }
 

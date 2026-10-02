@@ -324,7 +324,143 @@
     return parts.map((p) => `<span>${p}</span>`).join('');
   }
 
+  // ---------- 할 일 보드 (날짜별 열) ----------
+  const BOARD_DAYS = 14;
+  const todoView = () => S.state.settings.todoView || 'board';
+
+  function renderBoard() {
+    const board = $('#todoBoard');
+    const sched = S.todoSchedule();
+    const today = todayKey();
+    const open = sortedTodos().filter((t) => !t.done);
+    const last = S.addDays(today, BOARD_DAYS - 1);
+    const cols = [];
+    const over = open.filter((t) => t.due && t.due < today);
+    if (over.length) cols.push({ title: '기한이 지난', items: over, cls: 'over', showDue: true });
+    for (let i = 0; i < BOARD_DAYS; i++) {
+      const k = S.addDays(today, i);
+      const d = S.parseKey(k);
+      const name = i === 0 ? '오늘' : i === 1 ? '내일' : WEEK[d.getDay()] + '요일';
+      cols.push({ date: k, title: `${d.getMonth() + 1}월 ${d.getDate()}일 · ${name}`, items: open.filter((t) => t.due === k) });
+    }
+    const later = open.filter((t) => t.due && t.due > last);
+    if (later.length) cols.push({ title: '그 이후', items: later, showDue: true });
+    cols.push({ date: '', title: '마감 없음', items: open.filter((t) => !t.due) });
+
+    const card = (t, c) => {
+      const meta = [];
+      if (c.showDue) meta.push(`<span class="due">${shortDate(t.due)}</span>`);
+      meta.push(`<span>${fmtDur(t.est)}</span>`);
+      const placed = sched[t.id];
+      if (placed) meta.push('<span>링 ' + placed.map((p) => `${shortDate(p.date)} ${fmt(p.start)}`).join(', ') + '</span>');
+      return `<div class="card" draggable="true" data-id="${esc(t.id)}">
+        <button class="check" data-act="done" aria-label="완료"></button>
+        <div class="body"><div class="ttl">${esc(t.title)}${t.tid ? '<span class="tag">Todoist</span>' : ''}</div><div class="meta">${meta.join('')}</div></div>
+      </div>`;
+    };
+    // 그 날 링에 잡아 둔 일정을 열 위쪽에 간단히 보여 준다.
+    const dayBlocks = (k) => {
+      const its = S.viewItems(k).filter((i) => i.own);
+      if (!its.length) return '';
+      const rows = its.slice(0, 4).map((i) => `<div><i style="background:${esc(i.block.color)}"></i>${fmt(i.s)}–${fmt(i.e)} ${esc(i.block.title)}</div>`);
+      if (its.length > 4) rows.push(`<div>그 외 ${its.length - 4}</div>`);
+      return `<div class="dayblocks">${rows.join('')}</div>`;
+    };
+
+    const left = board.scrollLeft;
+    board.innerHTML = cols
+      .map((c) => {
+        const droppable = c.date !== undefined;
+        return `<div class="col ${c.cls || ''}" ${droppable ? `data-date="${c.date}"` : ''}>
+          <div class="colhead">${c.title}<span class="n">${c.items.length}</span></div>
+          ${c.date ? dayBlocks(c.date) : ''}
+          ${c.items.map((t) => card(t, c)).join('')}
+          ${droppable ? '<button class="addcard" data-act="add">+ 작업 추가</button>' : ''}
+        </div>`;
+      })
+      .join('');
+    board.scrollLeft = left;
+  }
+
+  $('#todoBoard').addEventListener('click', async (ev) => {
+    const act = ev.target.dataset.act;
+    const cardEl = ev.target.closest('.card');
+    if (act === 'add') {
+      const col = ev.target.closest('.col');
+      const input = document.createElement('input');
+      input.className = 'addinput';
+      input.placeholder = '할 일을 적고 Enter';
+      ev.target.replaceWith(input);
+      input.focus();
+      let finished = false;
+      const finish = (save) => {
+        if (finished) return;
+        finished = true;
+        const title = input.value.trim();
+        if (save && title) S.addTodo({ title, due: col.dataset.date || null, est: 60 });
+        renderTodos();
+      };
+      input.onkeydown = (e) => {
+        if (e.isComposing) return; // 한글 조합 중의 Enter 는 무시
+        if (e.key === 'Enter') finish(true);
+        else if (e.key === 'Escape') finish(false);
+      };
+      input.onblur = () => finish(true);
+      return;
+    }
+    if (!cardEl) return;
+    const t = S.todo(cardEl.dataset.id);
+    if (!t) return;
+    if (act === 'done') S.updateTodo(t.id, { done: true });
+    else await todoDialog(t);
+    renderTodos();
+  });
+
+  // 카드를 다른 날짜 열로 끌어다 놓으면 마감일이 바뀐다 (마우스 전용).
+  let dragTodo = null;
+  $('#todoBoard').addEventListener('dragstart', (ev) => {
+    const cardEl = ev.target.closest('.card');
+    if (!cardEl) return;
+    dragTodo = cardEl.dataset.id;
+    ev.dataTransfer.effectAllowed = 'move';
+    ev.dataTransfer.setData('text/plain', dragTodo);
+    cardEl.classList.add('dragging');
+  });
+  $('#todoBoard').addEventListener('dragend', () => {
+    dragTodo = null;
+    document.querySelectorAll('.board .drop, .board .dragging').forEach((el) => el.classList.remove('drop', 'dragging'));
+  });
+  $('#todoBoard').addEventListener('dragover', (ev) => {
+    const col = ev.target.closest('.col[data-date]');
+    if (!col || !dragTodo) return;
+    ev.preventDefault();
+    document.querySelectorAll('.board .drop').forEach((el) => el !== col && el.classList.remove('drop'));
+    col.classList.add('drop');
+  });
+  $('#todoBoard').addEventListener('drop', (ev) => {
+    const col = ev.target.closest('.col[data-date]');
+    const t = dragTodo && S.todo(dragTodo);
+    if (!col || !t) return;
+    ev.preventDefault();
+    const due = col.dataset.date || null;
+    if (t.due !== due) S.updateTodo(t.id, { due });
+    renderTodos();
+  });
+
+  document.querySelectorAll('.viewsw button').forEach((btn) => {
+    btn.onclick = () => {
+      S.setSetting('todoView', btn.dataset.tv);
+      renderTodos();
+    };
+  });
+
   function renderTodos() {
+    const boardMode = todoView() === 'board';
+    document.querySelectorAll('.viewsw button').forEach((b) => b.classList.toggle('on', b.dataset.tv === todoView()));
+    document.querySelector('main').classList.toggle('wide', boardMode && !$('#view-todos').hidden);
+    $('#todoBoard').hidden = !boardMode;
+    $('#todoList').hidden = boardMode;
+    if (boardMode) return renderBoard();
     const sched = S.todoSchedule();
     const list = sortedTodos();
     if (!list.length) {
@@ -388,6 +524,11 @@
         dlg.close();
       };
       $('#eCancel').onclick = () => dlg.close();
+      $('#eDelete').onclick = async () => {
+        dlg.close();
+        if ((await choose(`"${t.title}" 을(를) 삭제할까요? 링에 넣어 둔 일정은 그대로 남습니다.`, ['삭제', '취소'])) === 0) S.removeTodo(t.id);
+        renderTodos();
+      };
       dlg.onclose = () => resolve();
       dlg.showModal();
     });
@@ -641,6 +782,7 @@
       document.querySelectorAll('.tab').forEach((b) => b.classList.toggle('on', b === btn));
       $('#view-ring').hidden = btn.dataset.view !== 'ring';
       $('#view-todos').hidden = btn.dataset.view !== 'todos';
+      document.querySelector('main').classList.remove('wide');
       if (btn.dataset.view === 'ring') render();
       else renderTodos();
     };
