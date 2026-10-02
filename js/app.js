@@ -101,9 +101,18 @@
     const its = items();
     if (isToday()) {
       const n = nowMin();
-      const now = its.filter((i) => i.s <= n && n < i.e).pop();
+      // 지금 시각에 걸친 일정 가운데 하나를 고른다.
+      // 우선순위: ① 할 일 목록에서 링에 넣은 일정(완료한 것은 제외) ② 링 계획표의 일정 ③ 다른 구글 캘린더의 일정.
+      // 같은 순위에서는 더 늦게 시작한 쪽을 고른다.
+      const covers = (i) => i.s <= n && n < i.e;
+      const ringNow = its.filter(covers);
+      const now =
+        ringNow.filter((i) => i.block.todoId && !i.done).pop() ||
+        ringNow.filter((i) => !i.block.todoId).pop() ||
+        ringNow.pop() ||
+        RP.gcal.externals(cur).items.filter(covers).pop();
       const next = its.find((i) => i.s > n);
-      let h = `<div class="big">${fmt(n)}</div>`;
+      let h = `<div class="clock">${fmt(n)}</div>`;
       h += now ? `<div class="title">${esc(now.title)}</div><div class="sub">${fmtDur(now.e - n)} 남음</div>` : '<div class="sub">비어 있는 시간</div>';
       if (next) h += `<div class="next">다음 · ${esc(next.title)} ${fmt(next.s)}</div><div class="next" style="margin-top:0">${fmtDur(next.s - n)} 뒤</div>`;
       c.innerHTML = h;
