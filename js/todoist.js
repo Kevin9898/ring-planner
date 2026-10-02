@@ -215,6 +215,7 @@
           // 반복 작업을 완료하면 Todoist가 다음 날짜로 넘긴다. 완료한 날짜의 체크리스트에 기록이 남도록 사본을 둔다.
           S.state.todos.push({ id: S.uid(), title: t.title, due: t.due, est: t.est, done: true, created: t.created, mod: Date.now() });
         }
+        if (t.title !== r.content) S.renameTodoBlocks(t.id, r.content); // Todoist에서 바꾼 이름을 링 일정에도
         if (t.title !== r.content || t.due !== due || t.done) Object.assign(t, { title: r.content, due, done: false, mod: Date.now() });
         const desc = withLine(r.description, line);
         if (desc !== (r.description || '')) jobs.push(() => api('/tasks/' + t.tid, { method: 'POST', body: { description: desc } }));

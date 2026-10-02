@@ -190,6 +190,7 @@
     const t = todo(id);
     if (!t) return;
     Object.assign(t, patch, { mod: Date.now() });
+    if (patch.title !== undefined) renameTodoBlocks(id, t.title);
     if (t.tid) t.tsy = 'dirty';
     state.tDirty = true;
     dataChanged();
@@ -285,6 +286,18 @@
     return result;
   }
 
+  // 할 일의 이름이 바뀌면 그 할 일로 링에 넣은 일정의 이름도 맞춘다 (구글 캘린더에도 다시 올라가게 표시).
+  function renameTodoBlocks(id, title) {
+    for (const key of Object.keys(state.days)) {
+      for (const b of state.days[key]) {
+        if (b.todoId !== id || b.title === title) continue;
+        b.title = title;
+        b.rev = (b.rev || 0) + 1;
+        if (b.sy === 'ok') b.sy = 'dirty';
+      }
+    }
+  }
+
   // 동기화 쪽에서 할 일을 직접 고친 뒤 부른다 (변경 알림은 보내지 않는다).
   function markData() {
     state.dataDirty = true;
@@ -351,6 +364,7 @@
     mergeData,
     dataUploaded,
     markData,
+    renameTodoBlocks,
     dropTodo,
     purgeTodo,
     dropBlock,
