@@ -844,6 +844,8 @@
     document.querySelectorAll('#themeSw button').forEach((b) => b.classList.toggle('on', b.dataset.themeSet === theme));
     const dark = theme === 'dark' || (theme === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches);
     document.querySelectorAll('meta[name="theme-color"]').forEach((m) => (m.content = dark ? '#262624' : '#faf9f5'));
+    // 폰 브라우저의 "강제 다크"가 밝게 고른 화면을 다시 어둡게 만들지 않도록 알려 준다.
+    $('meta[name="color-scheme"]').content = theme === 'light' ? 'only light' : theme === 'dark' ? 'dark' : 'light dark';
   }
   document.querySelectorAll('#themeSw button').forEach((b) => {
     b.onclick = () => {
@@ -851,7 +853,8 @@
       applyTheme();
     };
   });
-  matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyTheme);
+  const darkQuery = matchMedia('(prefers-color-scheme: dark)');
+  if (darkQuery.addEventListener) darkQuery.addEventListener('change', applyTheme);
   applyTheme();
 
   // ---------- 설정 / 백업 ----------

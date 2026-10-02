@@ -3,6 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="color-scheme" content="light dark">
   <meta name="theme-color" content="#faf9f5" media="(prefers-color-scheme: light)">
   <meta name="theme-color" content="#262624" media="(prefers-color-scheme: dark)">
   <title>링 계획표</title>
@@ -16,7 +17,10 @@
     // 저장된 화면 모드(밝게/어둡게)를 그리기 전에 적용해 깜빡임을 막는다.
     try {
       var savedTheme = JSON.parse(localStorage.getItem('ringplan.v1')).settings.theme;
-      if (savedTheme === 'light' || savedTheme === 'dark') document.documentElement.dataset.theme = savedTheme;
+      if (savedTheme === 'light' || savedTheme === 'dark') {
+        document.documentElement.dataset.theme = savedTheme;
+        document.querySelector('meta[name="color-scheme"]').content = savedTheme === 'light' ? 'only light' : 'dark';
+      }
     } catch (e) {}
     if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js');
   </script>

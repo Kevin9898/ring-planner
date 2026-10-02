@@ -49,7 +49,8 @@
   --shadow: 0 1px 2px rgba(0, 0, 0, .2), 0 4px 14px rgba(0, 0, 0, .18);
   color-scheme: dark;
 }
-:root[data-theme="light"] { color-scheme: light; }
+/* "only" 를 붙여야 폰 브라우저가 밝은 화면을 강제로 어둡게 바꾸지 않는다. */
+:root[data-theme="light"] { color-scheme: only light; }
 .themesw { display: flex; gap: 2px; background: var(--card); border-radius: 999px; padding: 3px; }
 .themesw button { border: none; background: transparent; border-radius: 999px; padding: 4px 12px; font-size: 13px; color: var(--muted); }
 .themesw button.on { background: var(--text); color: var(--bg); }
