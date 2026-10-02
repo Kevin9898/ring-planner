@@ -89,7 +89,6 @@
   function renderDate() {
     const d = S.parseKey(cur);
     $('#dateText').innerHTML = `${d.getMonth() + 1}월 ${d.getDate()}일 (${WEEK[d.getDay()]})` + (isToday() ? '<span class="badge today">오늘</span>' : '');
-    $('#datePick').value = cur;
   }
 
   function renderCenter() {
@@ -231,15 +230,47 @@
   $('#prevDay').onclick = () => go(S.addDays(cur, -1));
   $('#nextDay').onclick = () => go(S.addDays(cur, 1));
   $('#todayBtn').onclick = () => go(todayKey());
-  $('#dateBtn').onclick = () => {
-    const p = $('#datePick');
-    try {
-      p.showPicker();
-    } catch (e) {
-      p.focus();
+  // 날짜를 누르면 달력이 열린다. 기기마다 다른 기본 날짜 선택기 대신 직접 그려서 폰에서도 똑같이 동작한다.
+  let calMonth = null; // 달력에 보이는 달의 1일
+  function renderCalendar() {
+    const y = calMonth.getFullYear(), m = calMonth.getMonth();
+    $('#calTitle').textContent = `${y}년 ${m + 1}월`;
+    const today = todayKey();
+    let h = WEEK.map((w, i) => `<span class="wd${i === 0 ? ' sun' : ''}">${w}</span>`).join('');
+    h += '<span></span>'.repeat(new Date(y, m, 1).getDay());
+    const days = new Date(y, m + 1, 0).getDate();
+    for (let d = 1; d <= days; d++) {
+      const key = S.dateKey(new Date(y, m, d));
+      const cls = (key === cur ? ' sel' : '') + (key === today ? ' today' : '') + (new Date(y, m, d).getDay() === 0 ? ' sun' : '');
+      h += `<button type="button" class="day${cls}" data-key="${key}">${d}${S.ownBlocks(key).length ? '<i></i>' : ''}</button>`;
     }
+    $('#calGrid').innerHTML = h;
+  }
+  const moveCal = (n) => {
+    calMonth = new Date(calMonth.getFullYear(), calMonth.getMonth() + n, 1);
+    renderCalendar();
   };
-  $('#datePick').onchange = (ev) => ev.target.value && go(ev.target.value);
+  $('#dateBtn').onclick = () => {
+    const d = S.parseKey(cur);
+    calMonth = new Date(d.getFullYear(), d.getMonth(), 1);
+    renderCalendar();
+    $('#dlgCal').showModal();
+  };
+  $('#calPrev').onclick = () => moveCal(-1);
+  $('#calNext').onclick = () => moveCal(1);
+  $('#calClose').onclick = () => $('#dlgCal').close();
+  $('#calToday').onclick = () => {
+    $('#dlgCal').close();
+    go(todayKey());
+  };
+  $('#calGrid').onclick = (ev) => {
+    const btn = ev.target.closest('[data-key]');
+    if (!btn) return;
+    $('#dlgCal').close();
+    go(btn.dataset.key);
+  };
+  // 바깥(어두운 부분)을 누르면 닫는다.
+  $('#dlgCal').addEventListener('click', (ev) => ev.target === ev.currentTarget && ev.currentTarget.close());
 
   $('#modeBtn').onclick = () => {
     S.setSetting('mode', S.state.settings.mode === 'rotating' ? 'fixed' : 'rotating');

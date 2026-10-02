@@ -35,7 +35,6 @@
       <div class="datebar">
         <button id="prevDay" class="icon" aria-label="전날">‹</button>
         <button id="dateBtn" class="datebtn"><span id="dateText"></span></button>
-        <input type="date" id="datePick" class="visually-hidden" tabindex="-1" aria-hidden="true">
         <button id="nextDay" class="icon" aria-label="다음 날">›</button>
         <button id="todayBtn">오늘</button>
       </div>
@@ -184,6 +183,20 @@
     <div class="dlgbtns">
       <span class="sp"></span>
       <button type="button" id="tplClose">닫기</button>
+    </div>
+  </dialog>
+
+  <dialog id="dlgCal" class="caldlg">
+    <div class="calhead">
+      <button id="calPrev" class="icon" aria-label="이전 달">‹</button>
+      <b id="calTitle"></b>
+      <button id="calNext" class="icon" aria-label="다음 달">›</button>
+    </div>
+    <div id="calGrid" class="calgrid"></div>
+    <div class="dlgbtns">
+      <button type="button" id="calToday">오늘</button>
+      <span class="sp"></span>
+      <button type="button" id="calClose">닫기</button>
     </div>
   </dialog>
 
