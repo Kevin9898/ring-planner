@@ -233,14 +233,14 @@ main.wide { max-width: 1280px; }
 .viewsw { display: flex; gap: 4px; justify-content: flex-end; margin-bottom: 8px; }
 .viewsw button.on { background: var(--text); color: var(--bg); border-color: var(--text); }
 /* 왼쪽에 "기한이 지난" 열을 고정하고, 오른쪽에서 날짜 열을 넘겨 본다. 한 화면에 최대 5열. */
-.board { display: flex; align-items: flex-start; gap: 12px; }
+.board { display: flex; align-items: stretch; gap: 12px; min-height: 50vh; }
 .board .col { border-radius: 12px; padding: 4px; min-width: 0; }
 .board .pin { flex: 0 0 calc((100% - 48px) / 5); }
 .board .scroller {
   flex: 1;
   min-width: 0;
   display: flex;
-  align-items: flex-start;
+  align-items: stretch;
   gap: 12px;
   overflow-x: auto;
   padding-bottom: 16px;
@@ -272,7 +272,10 @@ main.wide { max-width: 1280px; }
   cursor: pointer;
 }
 .board .card:hover { border-color: var(--muted); }
-.board .card.dragging { opacity: .4; }
+.board .card { user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+.board .card.dragging { opacity: .35; }
+.board.ghost { position: fixed; left: 0; top: 0; z-index: 50; display: block; min-height: 0; pointer-events: none; }
+.board.ghost .card { margin: 0; box-shadow: 0 10px 28px rgba(0, 0, 0, .28); transform: rotate(2deg); }
 .board .check { flex: none; width: 20px; height: 20px; padding: 0; border-radius: 50%; border: 1.5px solid var(--muted); background: transparent; margin-top: 1px; }
 .board .check:hover { background: var(--track); }
 .board .card .body { flex: 1; min-width: 0; }

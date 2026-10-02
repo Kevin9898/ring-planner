@@ -362,7 +362,7 @@
       meta.push(`<span>${fmtDur(t.est)}</span>`);
       const placed = sched[t.id];
       if (placed) meta.push('<span>링 ' + placed.map((p) => `${shortDate(p.date)} ${fmt(p.start)}`).join(', ') + '</span>');
-      return `<div class="card" draggable="true" data-id="${esc(t.id)}">
+      return `<div class="card" data-id="${esc(t.id)}">
         <button class="check" data-act="done" aria-label="완료"></button>
         <div class="body"><div class="ttl">${esc(t.title)}${t.tid ? '<span class="tag">Todoist</span>' : ''}</div><div class="meta">${meta.join('')}</div></div>
       </div>`;
@@ -393,6 +393,7 @@
   }
 
   $('#todoBoard').addEventListener('click', async (ev) => {
+    if (suppressClick) return;
     const act = ev.target.dataset.act;
     const cardEl = ev.target.closest('.card');
     if (act === 'add') {
@@ -426,36 +427,110 @@
     renderTodos();
   });
 
-  // 카드를 다른 날짜 열로 끌어다 놓으면 마감일이 바뀐다 (마우스 전용).
-  let dragTodo = null;
-  $('#todoBoard').addEventListener('dragstart', (ev) => {
-    const cardEl = ev.target.closest('.card');
-    if (!cardEl) return;
-    dragTodo = cardEl.dataset.id;
-    ev.dataTransfer.effectAllowed = 'move';
-    ev.dataTransfer.setData('text/plain', dragTodo);
-    cardEl.classList.add('dragging');
-  });
-  $('#todoBoard').addEventListener('dragend', () => {
-    dragTodo = null;
-    document.querySelectorAll('.board .drop, .board .dragging').forEach((el) => el.classList.remove('drop', 'dragging'));
-  });
-  $('#todoBoard').addEventListener('dragover', (ev) => {
-    const col = ev.target.closest('.col[data-date]');
-    if (!col || !dragTodo) return;
-    ev.preventDefault();
-    document.querySelectorAll('.board .drop').forEach((el) => el !== col && el.classList.remove('drop'));
-    col.classList.add('drop');
-  });
-  $('#todoBoard').addEventListener('drop', (ev) => {
-    const col = ev.target.closest('.col[data-date]');
-    const t = dragTodo && S.todo(dragTodo);
-    if (!col || !t) return;
-    ev.preventDefault();
-    const due = col.dataset.date || null;
-    if (t.due !== due) S.updateTodo(t.id, { due });
+  // 카드를 끌어 다른 날짜 열에 놓으면 마감일이 바뀐다.
+  // 마우스는 바로 끌고, 터치는 꾹 누른 뒤 끈다 (그냥 밀면 보드가 넘어간다).
+  const boardEl = $('#todoBoard');
+  let cardDrag = null;
+  let suppressClick = false;
+
+  function startCardDrag() {
+    const d = cardDrag;
+    d.active = true;
+    const r = d.card.getBoundingClientRect();
+    d.dx = d.x - r.left;
+    d.dy = d.y - r.top;
+    d.ghost = document.createElement('div');
+    d.ghost.className = 'board ghost';
+    d.ghost.style.width = r.width + 'px';
+    d.ghost.appendChild(d.card.cloneNode(true));
+    document.body.appendChild(d.ghost);
+    d.card.classList.add('dragging');
+    d.scroller = boardEl.querySelector('.scroller');
+    d.scroller.style.scrollSnapType = 'none';
+    try {
+      boardEl.setPointerCapture(d.id);
+    } catch (e) {}
+    if (d.touch && navigator.vibrate) navigator.vibrate(15);
+    d.scrollTimer = setInterval(autoScrollBoard, 16);
+    moveCardDrag();
+  }
+
+  function moveCardDrag() {
+    const d = cardDrag;
+    d.ghost.style.transform = `translate(${d.x - d.dx}px, ${d.y - d.dy}px)`;
+    // 세로 위치와 상관없이, 포인터가 놓인 가로 위치의 날짜 열을 고른다 (빈 열은 높이가 낮아서).
+    const sr = d.scroller.getBoundingClientRect();
+    const col =
+      d.x >= sr.left && d.x <= sr.right
+        ? [...d.scroller.querySelectorAll('.col[data-date]')].find((c) => {
+            const r = c.getBoundingClientRect();
+            return d.x >= r.left && d.x <= r.right;
+          }) || null
+        : null;
+    if (col === d.col) return;
+    if (d.col) d.col.classList.remove('drop');
+    if (col) col.classList.add('drop');
+    d.col = col;
+  }
+
+  // 가장자리 근처로 끌고 가면 날짜 열이 옆으로 넘어간다.
+  function autoScrollBoard() {
+    const d = cardDrag;
+    if (!d || !d.active) return;
+    const r = d.scroller.getBoundingClientRect();
+    const edge = 48;
+    if (d.x > r.right - edge) d.scroller.scrollLeft += 10;
+    else if (d.x >= r.left && d.x < r.left + edge) d.scroller.scrollLeft -= 10;
+    else return;
+    moveCardDrag();
+  }
+
+  function endCardDrag(drop) {
+    const d = cardDrag;
+    cardDrag = null;
+    if (!d) return;
+    clearTimeout(d.pressTimer);
+    clearInterval(d.scrollTimer);
+    if (!d.active) return;
+    d.ghost.remove();
+    try {
+      boardEl.releasePointerCapture(d.id);
+    } catch (e) {}
+    // 끌기가 끝난 직후의 클릭이 수정 창을 열지 않게 한다.
+    suppressClick = true;
+    setTimeout(() => (suppressClick = false), 80);
+    const t = S.todo(d.todoId);
+    if (drop && d.col && t) {
+      const due = d.col.dataset.date || null;
+      if (t.due !== due) S.updateTodo(t.id, { due });
+    }
     renderTodos();
+  }
+
+  boardEl.addEventListener('pointerdown', (ev) => {
+    if (cardDrag && !cardDrag.active) endCardDrag(false);
+    const cardEl = ev.target.closest('.card');
+    if (!cardEl || ev.button || ev.target.closest('.check') || cardDrag) return;
+    cardDrag = { id: ev.pointerId, card: cardEl, todoId: cardEl.dataset.id, x: ev.clientX, y: ev.clientY, x0: ev.clientX, y0: ev.clientY, touch: ev.pointerType !== 'mouse', active: false };
+    if (cardDrag.touch) cardDrag.pressTimer = setTimeout(() => cardDrag && !cardDrag.active && startCardDrag(), 350);
   });
+  boardEl.addEventListener('pointermove', (ev) => {
+    const d = cardDrag;
+    if (!d || ev.pointerId !== d.id) return;
+    d.x = ev.clientX;
+    d.y = ev.clientY;
+    if (d.active) return moveCardDrag();
+    const dist = Math.hypot(d.x - d.x0, d.y - d.y0);
+    if (!d.touch && dist > 6) startCardDrag();
+    else if (d.touch && dist > 10) endCardDrag(false); // 꾹 누르기 전에 움직이면 스크롤로 본다
+  });
+  boardEl.addEventListener('pointerup', (ev) => {
+    if (cardDrag && ev.pointerId === cardDrag.id) endCardDrag(true);
+  });
+  boardEl.addEventListener('pointercancel', () => endCardDrag(false));
+  // 끄는 동안에는 화면이 같이 밀리지 않게 한다.
+  boardEl.addEventListener('touchmove', (ev) => cardDrag && cardDrag.active && ev.preventDefault(), { passive: false });
+  boardEl.addEventListener('contextmenu', (ev) => cardDrag && ev.preventDefault());
 
   const goWeek = (n) => {
     weekOffset = Math.max(0, n);
@@ -473,6 +548,7 @@
   });
 
   function renderTodos() {
+    if (cardDrag && cardDrag.active) return; // 끄는 중에는 화면을 다시 그리지 않는다
     const boardMode = todoView() === 'board';
     document.querySelectorAll('.viewsw button').forEach((b) => b.classList.toggle('on', b.dataset.tv === todoView()));
     document.querySelector('main').classList.toggle('wide', boardMode && !$('#view-todos').hidden);
