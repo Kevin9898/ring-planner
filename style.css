@@ -17,8 +17,9 @@
   --r-lg: 22px;
   color-scheme: light dark;
 }
+/* 어두운 색. 기본은 기기 설정을 따르고, 설정에서 밝게/어둡게를 고르면 data-theme 으로 고정된다. */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --bg: #262624;
     --card: #30302e;
     --soft: #3a3a37;
@@ -33,6 +34,25 @@
     --shadow: 0 1px 2px rgba(0, 0, 0, .2), 0 4px 14px rgba(0, 0, 0, .18);
   }
 }
+:root[data-theme="dark"] {
+  --bg: #262624;
+  --card: #30302e;
+  --soft: #3a3a37;
+  --text: #faf9f5;
+  --muted: #a6a59c;
+  --line: #42423f;
+  --track: #3a3a37;
+  --accent: #d97757;
+  --accent-soft: #4a382f;
+  --danger: #e58a80;
+  --now: #e08a6d;
+  --shadow: 0 1px 2px rgba(0, 0, 0, .2), 0 4px 14px rgba(0, 0, 0, .18);
+  color-scheme: dark;
+}
+:root[data-theme="light"] { color-scheme: light; }
+.themesw { display: flex; gap: 2px; background: var(--card); border-radius: 999px; padding: 3px; }
+.themesw button { border: none; background: transparent; border-radius: 999px; padding: 4px 12px; font-size: 13px; color: var(--muted); }
+.themesw button.on { background: var(--text); color: var(--bg); }
 
 * { box-sizing: border-box; }
 html, body { margin: 0; }

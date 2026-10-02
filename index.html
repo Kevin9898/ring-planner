@@ -13,6 +13,11 @@
   <meta name="apple-mobile-web-app-title" content="링 계획표">
   <link rel="stylesheet" href="style.css">
   <script>
+    // 저장된 화면 모드(밝게/어둡게)를 그리기 전에 적용해 깜빡임을 막는다.
+    try {
+      var savedTheme = JSON.parse(localStorage.getItem('ringplan.v1')).settings.theme;
+      if (savedTheme === 'light' || savedTheme === 'dark') document.documentElement.dataset.theme = savedTheme;
+    } catch (e) {}
     if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js');
   </script>
 </head>
@@ -62,6 +67,11 @@
       <details class="settings">
         <summary>설정 · 백업</summary>
         <div class="settings-body">
+          <div class="themesw" id="themeSw" role="group" aria-label="화면 모드">
+            <button data-theme-set="auto">기기 설정</button>
+            <button data-theme-set="light">밝게</button>
+            <button data-theme-set="dark">어둡게</button>
+          </div>
           <label>시간 단위
             <select id="snapSel">
               <option value="5">5분</option>

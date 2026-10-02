@@ -804,6 +804,25 @@
     renderTemplates();
   });
 
+  // ---------- 화면 모드 ----------
+  // 기본은 기기 설정을 따르고, 밝게/어둡게를 고르면 이 기기에서만 고정된다.
+  function applyTheme() {
+    const theme = S.state.settings.theme || 'auto';
+    if (theme === 'auto') delete document.documentElement.dataset.theme;
+    else document.documentElement.dataset.theme = theme;
+    document.querySelectorAll('#themeSw button').forEach((b) => b.classList.toggle('on', b.dataset.themeSet === theme));
+    const dark = theme === 'dark' || (theme === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches);
+    document.querySelectorAll('meta[name="theme-color"]').forEach((m) => (m.content = dark ? '#262624' : '#faf9f5'));
+  }
+  document.querySelectorAll('#themeSw button').forEach((b) => {
+    b.onclick = () => {
+      S.setSetting('theme', b.dataset.themeSet);
+      applyTheme();
+    };
+  });
+  matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyTheme);
+  applyTheme();
+
   // ---------- 설정 / 백업 ----------
   $('#snapSel').value = String(S.state.settings.snap);
   $('#snapSel').onchange = (ev) => S.setSetting('snap', Number(ev.target.value));
